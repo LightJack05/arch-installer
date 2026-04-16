@@ -1,0 +1,16 @@
+# One systemd unit per line. Missing units are skipped with a warning (stage 90).
+# Hash-prefixed lines and blank lines are ignored.
+
+NetworkManager.service
+avahi-daemon.service
+bluetooth.service
+cups.service
+illuminanced.service
+libvirtd.service
+ly@tty2.service
+power-profiles-daemon.service
+systemd-timesyncd.service
+ufw.service
+vmware-networks.service
+vmware-usbarbitrator.service
+nix-daemon.service

@@ -1,0 +1,44 @@
+#!/bin/bash
+# stage 25-swap — create swapfile on the mounted root and record resume_offset.
+#
+# zRAM is configured here (writes /mnt/etc/systemd/zram-generator.conf) but
+# not activated; the generator runs at first boot of the installed system.
+#
+# Swapfile goes to /mnt/swap/swapfile. For btrfs, /mnt/swap is the @swap
+# subvol (NOCOW + uncompressed, set up by fs.sh earlier).
+
+set -Eeuo pipefail
+# shellcheck source=../lib/common.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/../lib/common.sh"
+# shellcheck source=../lib/config.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/../lib/config.sh"
+# shellcheck source=../lib/swap.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/../lib/swap.sh"
+
+main() {
+    cfg_load
+    cfg_require FILESYSTEM SWAPFILE_SIZE_MIB
+
+    local target="/mnt"
+    [[ "${INSTALL_MODE}" == "D" ]] && target="${MANUAL_MOUNT}"
+
+    local swapfile="${target}${SWAPFILE_RELPATH}"
+    local offset
+
+    if [[ "${FILESYSTEM}" == "btrfs" ]]; then
+        # TODO: swap_create_swapfile_btrfs "${SWAPFILE_SIZE_MIB}" "${swapfile}"
+        # TODO: offset=$(swap_resume_offset_btrfs "${swapfile}")
+        :
+    else
+        # TODO: swap_create_swapfile_ext4 "${SWAPFILE_SIZE_MIB}" "${swapfile}"
+        # TODO: offset=$(swap_resume_offset_ext4 "${swapfile}")
+        :
+    fi
+
+    # TODO: swap_write_zram_conf "${target}"
+    # TODO: swap_append_fstab "${target}" "${SWAPFILE_RELPATH}"
+    # TODO: cfg_set RESUME_OFFSET "${offset}"
+    :
+}
+
+main "$@"

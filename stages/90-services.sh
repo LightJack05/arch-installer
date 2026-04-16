@@ -13,16 +13,22 @@ main() {
     local list="${INSTALLER_ROOT}/config/services.txt"
     [[ -r "${list}" ]] || die "services list not found: ${list}"
 
-    # TODO:
-    #   while IFS= read -r unit; do
-    #     [[ -z "$unit" || "$unit" =~ ^# ]] && continue
-    #     if systemctl list-unit-files "$unit" >/dev/null 2>&1; then
-    #       systemctl enable "$unit"
-    #     else
-    #       log_warn "unit not found, skipping: $unit"
-    #     fi
-    #   done < "$list"
-    :
+    log_info "enabling services from ${list}"
+
+    while IFS= read -r unit; do
+        # Strip comments and trim whitespace
+        unit="${unit%%#*}"
+        unit="${unit//[[:space:]]/}"
+        [[ -z "$unit" ]] && continue
+
+        if systemctl list-unit-files "$unit" >/dev/null 2>&1; then
+            run systemctl enable "$unit"
+        else
+            log_warn "unit not found, skipping: $unit"
+        fi
+    done < "${list}"
+
+    log_info "service enablement complete"
 }
 
 main "$@"

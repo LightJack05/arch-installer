@@ -16,28 +16,45 @@ main() {
     cfg_require USERNAME
 
     if [[ "${DOTFILES_ENABLED:-1}" != "1" ]]; then
-        log_info "dotfiles disabled in TUI — skipping"
+        log_info "dotfiles disabled — skipping"
         return 0
     fi
 
     local token_file="/root/.installer-ghtoken"
     local home="/home/${USERNAME}"
 
-    # TODO: ensure gh + git installed (they should be, via packages.txt)
-    # TODO: if [[ -s "$token_file" ]]; then
-    #         install -Dm 0600 -o "$USERNAME" -g "$USERNAME" \
-    #             "$token_file" "$home/.config/installer-ghtoken"
-    #         sudo -u "$USERNAME" bash -c '
-    #             set -Eeuo pipefail
-    #             export GH_TOKEN=$(cat ~/.config/installer-ghtoken)
-    #             gh auth status || gh auth login --with-token <<<"$GH_TOKEN"
-    #             gh auth setup-git
-    #             git clone https://github.com/LightJack05/dotfiles --recursive ~/dotfiles
-    #             ~/dotfiles/setup-complete.sh
-    #             shred -u ~/.config/installer-ghtoken
-    #         '
-    #       fi
-    :
+    if [[ -s "$token_file" ]]; then
+        local token
+        token=$(cat "$token_file")
+
+        # Auth gh as the user
+        run sudo -u "$USERNAME" bash -c "
+            set -Eeuo pipefail
+            mkdir -p ~/.config/gh
+            printf '%s' '${token}' | gh auth login --with-token
+            gh auth setup-git
+        "
+        log_info "gh authenticated for ${USERNAME}"
+
+        # Clone dotfiles
+        run sudo -u "$USERNAME" git clone \
+            https://github.com/LightJack05/dotfiles \
+            --recursive \
+            "${home}/dotfiles"
+        log_info "dotfiles cloned to ${home}/dotfiles"
+
+        # Run setup script
+        run sudo -u "$USERNAME" "${home}/dotfiles/setup-complete.sh"
+        log_info "dotfiles setup script completed"
+
+        # Shred the token from the chroot side
+        shred -u "$token_file" 2>/dev/null || rm -f "$token_file"
+        log_info "GH token shredded"
+    else
+        log_warn "no gh token found at ${token_file} — skipping dotfiles"
+    fi
+
+    log_info "dotfiles stage complete"
 }
 
 main "$@"

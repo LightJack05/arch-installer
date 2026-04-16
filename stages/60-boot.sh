@@ -8,8 +8,9 @@
 #   - mkinitcpio -P  →  /efi/EFI/BOOT/BOOTX64.EFI
 #
 # If SECURE_BOOT=1:
-#   - run optional/secure-boot.sh  (creates keys, enrolls, signs)
-#   - do this BEFORE TPM enrollment so PCR 7 is stable (scheme C note)
+#   - run optional/secure-boot.sh  (creates keys, enrolls)
+#   - build UKI via boot_rebuild_uki
+#   - sb_sign_all  (sign after build so the signed files are current)
 #
 # For scheme D: derive UUIDs from the mounted filesystems via findmnt + blkid.
 
@@ -25,35 +26,84 @@ main() {
     cfg_load
     cfg_require INSTALL_MODE RESUME_OFFSET
 
-    # TODO: boot_write_mkinitcpio_conf
-    # TODO: boot_write_preset
+    boot_write_mkinitcpio_conf
+    boot_write_preset
 
     local cmdline
     case "${INSTALL_MODE}" in
         A)
-            # TODO: root_uuid=$(findmnt -no UUID /)
-            # TODO: cmdline=$(boot_build_cmdline_scheme_a "$root_uuid" "$RESUME_OFFSET")
+            local root_uuid
+            root_uuid=$(blkid -s UUID -o value "$(findmnt -no SOURCE /)")
+            cmdline=$(boot_build_cmdline_scheme_a "${root_uuid}" "${RESUME_OFFSET}")
             ;;
         B)
-            # TODO: luks_uuid=$LUKS_UUID  (set by stage 20) or derive via blkid
-            # TODO: cmdline=$(boot_build_cmdline_scheme_b "$luks_uuid" "$RESUME_OFFSET")
+            cfg_require LUKS_UUID
+            cmdline=$(boot_build_cmdline_scheme_b "${LUKS_UUID}" "${RESUME_OFFSET}")
             ;;
         C)
-            # TODO: cmdline=$(boot_build_cmdline_scheme_c "$LUKS_UUID" "$RESUME_OFFSET")
+            cfg_require LUKS_UUID
+            cmdline=$(boot_build_cmdline_scheme_c "${LUKS_UUID}" "${RESUME_OFFSET}")
             ;;
         D)
-            # TODO: inspect /: plain → scheme A cmdline; /dev/mapper → scheme B or C
+            # Detect whether root device is a LUKS mapper or a plain partition.
+            local root_source
+            root_source=$(findmnt -no SOURCE /)
+
+            if [[ "${root_source}" == /dev/mapper/* ]]; then
+                # Encrypted root — find the backing block device UUID.
+                local mapper_name="${root_source#/dev/mapper/}"
+                local backing_dev
+                backing_dev=$(dmsetup deps -o devname "${mapper_name}" \
+                    | grep -oP '\(\K[^)]+' | head -n1)
+                backing_dev="/dev/${backing_dev}"
+                local luks_uuid
+                luks_uuid=$(blkid -s UUID -o value "${backing_dev}")
+
+                # Determine whether TPM2 options are in use by checking enrolled keyslots.
+                if systemd-cryptenroll --list-devices 2>/dev/null | grep -q "${backing_dev}" \
+                    && cryptsetup luksDump "${backing_dev}" 2>/dev/null | grep -q 'tpm2'; then
+                    cmdline=$(boot_build_cmdline_scheme_c "${luks_uuid}" "${RESUME_OFFSET}")
+                else
+                    cmdline=$(boot_build_cmdline_scheme_b "${luks_uuid}" "${RESUME_OFFSET}")
+                fi
+            else
+                # Plain (unencrypted) root.
+                local root_uuid
+                root_uuid=$(blkid -s UUID -o value "${root_source}")
+                cmdline=$(boot_build_cmdline_scheme_a "${root_uuid}" "${RESUME_OFFSET}")
+            fi
+            ;;
+        *)
+            die "unknown INSTALL_MODE: ${INSTALL_MODE}"
             ;;
     esac
 
-    # TODO: boot_write_cmdline "$cmdline"
-    # TODO: boot_rebuild_uki
+    boot_write_cmdline "${cmdline}"
 
     if [[ "${SECURE_BOOT:-0}" == "1" ]]; then
+        # Source secureboot lib so sb_sign_all is available in this shell.
+        # shellcheck source=../lib/secureboot.sh
+        source "$(dirname -- "${BASH_SOURCE[0]}")/../lib/secureboot.sh"
+
+        # Set up keys and enroll BEFORE building the UKI so the sbctl pacman
+        # hook (installed by the sbctl package) sees the keys during mkinitcpio.
         "${INSTALLER_ROOT}/optional/secure-boot.sh"
-        # TODO: boot_rebuild_uki  (re-sign is handled by sbctl pacman hook)
+
+        # Build the UKI.
+        boot_rebuild_uki
+
+        # Sign the freshly built UKI images.
+        sb_sign_all
+
+        log_info "secure boot: UKI signed"
+    else
+        boot_rebuild_uki
     fi
-    :
+
+    if [[ "${SURFACE_KERNEL:-0}" == "1" ]]; then
+        log_info "installing linux-surface kernel"
+        "${INSTALLER_ROOT}/optional/surface-kernel.sh"
+    fi
 }
 
 main "$@"

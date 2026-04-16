@@ -20,25 +20,24 @@ main() {
     cfg_require FILESYSTEM SWAPFILE_SIZE_MIB
 
     local target="/mnt"
-    [[ "${INSTALL_MODE}" == "D" ]] && target="${MANUAL_MOUNT}"
+    [[ "${INSTALL_MODE:-}" == "D" ]] && target="${MANUAL_MOUNT}"
 
     local swapfile="${target}${SWAPFILE_RELPATH}"
     local offset
 
     if [[ "${FILESYSTEM}" == "btrfs" ]]; then
-        # TODO: swap_create_swapfile_btrfs "${SWAPFILE_SIZE_MIB}" "${swapfile}"
-        # TODO: offset=$(swap_resume_offset_btrfs "${swapfile}")
-        :
+        swap_create_swapfile_btrfs "${SWAPFILE_SIZE_MIB}" "${swapfile}"
+        offset=$(swap_resume_offset_btrfs "${swapfile}")
     else
-        # TODO: swap_create_swapfile_ext4 "${SWAPFILE_SIZE_MIB}" "${swapfile}"
-        # TODO: offset=$(swap_resume_offset_ext4 "${swapfile}")
-        :
+        swap_create_swapfile_ext4 "${SWAPFILE_SIZE_MIB}" "${swapfile}"
+        offset=$(swap_resume_offset_ext4 "${swapfile}")
     fi
 
-    # TODO: swap_write_zram_conf "${target}"
-    # TODO: swap_append_fstab "${target}" "${SWAPFILE_RELPATH}"
-    # TODO: cfg_set RESUME_OFFSET "${offset}"
-    :
+    swap_write_zram_conf "${target}"
+    swap_append_fstab "${target}" "${SWAPFILE_RELPATH}"
+    cfg_set RESUME_OFFSET "${offset}"
+
+    log_info "swapfile created at ${swapfile} (resume_offset=${offset})"
 }
 
 main "$@"

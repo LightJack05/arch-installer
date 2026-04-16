@@ -18,22 +18,27 @@
 set -Eeuo pipefail
 
 boot_write_mkinitcpio_conf() {
-    # TODO: sed -i to replace HOOKS=(...) in /etc/mkinitcpio.conf with:
-    #   HOOKS=(systemd autodetect modconf keyboard sd-vconsole block sd-encrypt filesystems fsck)
-    :
+    sed -i 's/^HOOKS=(.*/HOOKS=(systemd autodetect modconf keyboard sd-vconsole block sd-encrypt filesystems fsck)/' \
+        /etc/mkinitcpio.conf
 }
 
 boot_write_preset() {
-    # TODO: write /etc/mkinitcpio.d/linux.preset:
-    #   ALL_kver="/boot/vmlinuz-linux"
-    #   ALL_microcode=(/boot/*-ucode.img)
-    #   PRESETS=('default' 'fallback')
-    #   default_uki="/efi/EFI/BOOT/BOOTX64.EFI"
-    #   default_options="--cmdline /etc/kernel/cmdline"
-    #   fallback_uki="/efi/EFI/Linux/arch-linux-fallback.efi"
-    #   fallback_options="-S autodetect"
-    # Also: mkdir -p /efi/EFI/BOOT /efi/EFI/Linux
-    :
+    mkdir -p /efi/EFI/BOOT /efi/EFI/Linux
+
+    cat > /etc/mkinitcpio.d/linux.preset << 'EOF'
+# mkinitcpio preset file for the 'linux' package
+
+ALL_kver="/boot/vmlinuz-linux"
+ALL_microcode=(/boot/*-ucode.img)
+
+PRESETS=('default' 'fallback')
+
+default_uki="/efi/EFI/BOOT/BOOTX64.EFI"
+default_options="--cmdline /etc/kernel/cmdline"
+
+fallback_uki="/efi/EFI/Linux/arch-linux-fallback.efi"
+fallback_options="-S autodetect"
+EOF
 }
 
 boot_build_cmdline_scheme_a() {
@@ -56,11 +61,11 @@ boot_build_cmdline_scheme_c() {
 
 boot_write_cmdline() {
     local cmdline="$1"
-    # TODO: umask 022; printf '%s\n' "$cmdline" > /etc/kernel/cmdline
-    :
+    umask 022
+    mkdir -p /etc/kernel
+    printf '%s\n' "$cmdline" > /etc/kernel/cmdline
 }
 
 boot_rebuild_uki() {
-    # TODO: mkinitcpio -P
-    :
+    run mkinitcpio -P
 }

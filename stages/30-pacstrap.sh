@@ -22,19 +22,21 @@ source "$(dirname -- "${BASH_SOURCE[0]}")/../lib/common.sh"
 # shellcheck source=../lib/config.sh
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib/config.sh"
 
-detect_ucode() {
-    # TODO: grep -q GenuineIntel /proc/cpuinfo && echo intel-ucode || echo amd-ucode
-    :
-}
-
 main() {
     cfg_load
+    cfg_require INSTALL_MODE FILESYSTEM
 
     local target="/mnt"
     [[ "${INSTALL_MODE}" == "D" ]] && target="${MANUAL_MOUNT}"
 
+    # Detect microcode
     local ucode
-    ucode="$(detect_ucode)"
+    if grep -q 'GenuineIntel' /proc/cpuinfo; then
+        ucode=intel-ucode
+    else
+        ucode=amd-ucode
+    fi
+    log_info "detected microcode package: ${ucode}"
 
     local pkgs=(
         base linux linux-firmware base-devel
@@ -42,14 +44,20 @@ main() {
         neovim vim zsh git
         sbctl efibootmgr
         zram-generator
-        "${ucode}"
+        "$ucode"
     )
-    [[ "${FILESYSTEM}" == "btrfs" ]] && pkgs+=(btrfs-progs)
-    [[ "${INSTALL_MODE}" == "C" ]]   && pkgs+=(tpm2-tools tpm2-tss)
+    [[ "$FILESYSTEM" == "btrfs" ]] && pkgs+=(btrfs-progs)
+    [[ "${INSTALL_MODE}" == "C" ]] && pkgs+=(tpm2-tools tpm2-tss)
 
-    # TODO: pacstrap -K "$target" "${pkgs[@]}"
-    # TODO: genfstab -U "$target" >> "$target/etc/fstab"
-    :
+    log_info "pacstrapping into ${target} with packages: ${pkgs[*]}"
+    run pacstrap -K "$target" "${pkgs[@]}"
+
+    log_info "generating fstab"
+    run bash -c "genfstab -U '${target}' >> '${target}/etc/fstab'"
+    log_info "fstab contents:"
+    cat "${target}/etc/fstab" >&2
+
+    log_info "pacstrap complete"
 }
 
 main "$@"

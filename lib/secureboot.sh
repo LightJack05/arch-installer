@@ -16,24 +16,19 @@
 set -Eeuo pipefail
 
 sb_status() {
-    # TODO: sbctl status
-    :
+    sbctl status
 }
 
 sb_create_keys() {
-    # TODO: sbctl create-keys
-    :
+    run sbctl create-keys
 }
 
 sb_enroll_keys() {
-    # TODO: sbctl enroll-keys -m   (Microsoft keys included for firmware updates)
-    :
+    run sbctl enroll-keys -m
 }
 
 sb_sign_all() {
-    # TODO:
-    #   sbctl sign -s /efi/EFI/BOOT/BOOTX64.EFI
-    #   sbctl sign -s /efi/EFI/Linux/arch-linux-fallback.efi
-    # sbctl installs a pacman hook that re-signs on UKI rebuild.
-    :
+    run sbctl sign -s /efi/EFI/BOOT/BOOTX64.EFI
+    [[ -f /efi/EFI/Linux/arch-linux-fallback.efi ]] && \
+        run sbctl sign -s /efi/EFI/Linux/arch-linux-fallback.efi || true
 }

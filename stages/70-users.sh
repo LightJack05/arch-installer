@@ -17,19 +17,30 @@ main() {
     cfg_load
     cfg_require USERNAME USER_PASSWORD_HASH
 
-    # TODO: useradd -m -G wheel -s "${USER_SHELL}" -c "${USER_FULLNAME:-}" "${USERNAME}"
-    # TODO: printf '%s:%s\n' "${USERNAME}" "${USER_PASSWORD_HASH}" | chpasswd -e
+    # Create the user. -c (comment/GECOS) is only passed when USER_FULLNAME is set.
+    useradd -m -G wheel -s "${USER_SHELL:-/usr/bin/zsh}" \
+        ${USER_FULLNAME:+-c "$USER_FULLNAME"} "$USERNAME"
 
+    # Set hashed user password — never log the hash.
+    run_quiet bash -c 'printf "%s:%s\n" "$1" "$2" | chpasswd -e' \
+        _ "$USERNAME" "$USER_PASSWORD_HASH"
+
+    # Set root password or lock root login.
     if [[ -n "${ROOT_PASSWORD_HASH:-}" ]]; then
-        # TODO: printf 'root:%s\n' "${ROOT_PASSWORD_HASH}" | chpasswd -e
-        :
+        run_quiet bash -c 'printf "root:%s\n" "$1" | chpasswd -e' _ "$ROOT_PASSWORD_HASH"
     else
-        # TODO: passwd -l root   (disable root login)
-        :
+        run passwd -l root
     fi
 
-    # TODO: install -m 0440 /dev/stdin /etc/sudoers.d/00-installer <<< "${USERNAME} ALL=(ALL:ALL) NOPASSWD: ALL"
-    :
+    # Install NOPASSWD sudoers dropin for unattended AUR stage.
+    printf '%s ALL=(ALL:ALL) NOPASSWD: ALL\n' "$USERNAME" \
+        > /etc/sudoers.d/00-installer
+    chmod 0440 /etc/sudoers.d/00-installer
+
+    # Verify the resulting sudoers configuration is syntactically valid.
+    visudo -c || die "sudoers syntax check failed"
+
+    log_info "user '${USERNAME}' created successfully"
 }
 
 main "$@"

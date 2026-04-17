@@ -107,6 +107,14 @@ arch-installer/
 - Small ASCII splash via `figlet` + `lolcat` on entry (cosmetic only; TUI doesn't depend on them).
 - **ISO ramdisk budget:** keep extra installs under ~100 MB; `00-precheck` sanity-checks free RAM before pulling extras.
 
+### TUI return-value convention
+All value-returning TUI functions (`tui_input`, `tui_password`, `tui_choose`, `tui_checklist`, `tui_input_validated`) store their result in the global `_TUI_RESULT` variable instead of printing to stdout. Callers **must not** wrap these in `$(...)` — instead call the function then read `_TUI_RESULT`:
+```bash
+tui_input "Title" "Prompt" "default"
+my_var="${_TUI_RESULT}"
+```
+Reason: `$()` creates a subshell; whiptail's `3>&1 1>&2 2>&3` fd swap and gum's interactive prompts break in nested subshell contexts. `tui_confirm` is exempt — it returns only an exit code (0=yes, 1=no).
+
 ### TUI answer set (all prompted, defaults pre-filled — "hit next" to accept)
 | Prompt | Default | Notes |
 |---|---|---|

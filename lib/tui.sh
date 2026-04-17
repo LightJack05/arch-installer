@@ -2,38 +2,44 @@
 # lib/tui.sh — backend-agnostic TUI wrappers.
 #
 # Selects a backend at source time (gum > whiptail > plain read). Every
-# function returns the selected value on stdout and exits 1 on cancel.
+# value-returning function stores its result in the global _TUI_RESULT
+# variable instead of printing to stdout, to avoid stdout-contamination
+# in nested subshells. Callers read _TUI_RESULT after the call returns.
+# tui_confirm returns 0/1 exit codes and does not set _TUI_RESULT.
 #
 # Functions (identical signatures across backends):
 #   tui_message      <title> <body>
-#   tui_input        <title> <prompt> [default]
-#   tui_password     <title> <prompt>                  — never echoes
-#   tui_choose       <title> <prompt> <choice...>      — single-select
-#   tui_checklist    <title> <prompt> <label1> <on|off> [...]  — multi-select
-#   tui_confirm      <title> <prompt>                  — yes/no
+#   tui_input        <title> <prompt> [default]        — sets _TUI_RESULT
+#   tui_password     <title> <prompt>                  — sets _TUI_RESULT; never echoes
+#   tui_choose       <title> <prompt> <choice...>      — sets _TUI_RESULT; single-select
+#   tui_checklist    <title> <prompt> <label1> <on|off> [...]  — sets _TUI_RESULT; multi-select
+#   tui_confirm      <title> <prompt>                  — yes/no (return code only)
 #   tui_step         <n> <total> <label>               — renders the step strip
 #
 # Validation helpers (optional, used by stage 10):
-#   tui_input_validated <title> <prompt> <default> <validator_fn>
+#   tui_input_validated <title> <prompt> <default> <validator_fn>  — sets _TUI_RESULT
 
 set -Eeuo pipefail
+
+# Global result variable — set by every value-returning function.
+_TUI_RESULT=""
 
 # Backend detection — override with INSTALLER_TUI=whiptail|read|gum.
 tui_detect_backend() {
     if [[ -n "${INSTALLER_TUI:-}" ]]; then
-        printf '%s' "${INSTALLER_TUI}"
+        INSTALLER_TUI_BACKEND="${INSTALLER_TUI}"
         return
     fi
     if command -v gum >/dev/null 2>&1; then
-        printf 'gum'
+        INSTALLER_TUI_BACKEND='gum'
     elif command -v whiptail >/dev/null 2>&1; then
-        printf 'whiptail'
+        INSTALLER_TUI_BACKEND='whiptail'
     else
-        printf 'read'
+        INSTALLER_TUI_BACKEND='read'
     fi
 }
 
-INSTALLER_TUI_BACKEND="$(tui_detect_backend)"
+tui_detect_backend
 export INSTALLER_TUI_BACKEND
 
 # ==============================================================================
@@ -50,7 +56,7 @@ tui_message() {
                 --border rounded \
                 --padding "1 2" \
                 --margin "1" \
-                "${title}" "${body}"
+                "${title}" "${body}" >&2
             # gum style just prints; read a keypress to let the user dismiss
             read -rsp "(press enter to continue)" </dev/tty
             printf '\n' >&2
@@ -59,7 +65,7 @@ tui_message() {
             whiptail --title "${title}" --msgbox "${body}" 20 70
             ;;
         read|*)
-            printf '\n=== %s ===\n%s\n' "${title}" "${body}"
+            printf '\n=== %s ===\n%s\n' "${title}" "${body}" >&2
             read -rp "(press enter)" </dev/tty
             ;;
     esac
@@ -74,24 +80,26 @@ tui_input() {
     local prompt="$2"
     local default="${3:-}"
 
+    _TUI_RESULT=""
+
     case "${INSTALLER_TUI_BACKEND}" in
         gum)
-            gum input \
+            _TUI_RESULT=$(gum input \
                 --header="${title}" \
                 --prompt="${prompt}: " \
                 --value="${default}" \
-                --placeholder="${default}"
+                --placeholder="${default}")
             ;;
         whiptail)
-            whiptail --title "${title}" \
+            _TUI_RESULT=$(whiptail --title "${title}" \
                 --inputbox "${prompt}" 10 60 "${default}" \
-                3>&1 1>&2 2>&3
+                3>&1 1>&2 2>&3)
             ;;
         read|*)
             printf '%s\n%s [%s]: ' "${title}" "${prompt}" "${default}" >&2
             local val
             read -r val </dev/tty
-            printf '%s' "${val:-${default}}"
+            _TUI_RESULT="${val:-${default}}"
             ;;
     esac
 }
@@ -104,23 +112,25 @@ tui_password() {
     local title="$1"
     local prompt="$2"
 
+    _TUI_RESULT=""
+
     case "${INSTALLER_TUI_BACKEND}" in
         gum)
-            gum input \
+            _TUI_RESULT=$(gum input \
                 --header="${title}" \
                 --prompt="${prompt}: " \
-                --password
+                --password)
             ;;
         whiptail)
-            whiptail --title "${title}" \
+            _TUI_RESULT=$(whiptail --title "${title}" \
                 --passwordbox "${prompt}" 10 60 \
-                3>&1 1>&2 2>&3
+                3>&1 1>&2 2>&3)
             ;;
         read|*)
             local val
             read -rsp "${prompt}: " val </dev/tty
             printf '\n' >&2
-            printf '%s' "${val}"
+            _TUI_RESULT="${val}"
             ;;
     esac
 }
@@ -135,9 +145,11 @@ tui_choose() {
     shift 2
     local choices=("$@")
 
+    _TUI_RESULT=""
+
     case "${INSTALLER_TUI_BACKEND}" in
         gum)
-            gum choose --header="${title}" "${choices[@]}"
+            _TUI_RESULT=$(gum choose --header="${title}" "${choices[@]}")
             ;;
         whiptail)
             # Build whiptail --menu items: tag item tag item ...
@@ -151,8 +163,8 @@ tui_choose() {
                 --menu "${prompt}" 20 70 10 \
                 "${menu_items[@]}" \
                 3>&1 1>&2 2>&3)
-            # Output the actual choice text (1-based index)
-            printf '%s' "${choices[$((choice_num-1))]}"
+            # Store the actual choice text (1-based index)
+            _TUI_RESULT="${choices[$((choice_num-1))]}"
             ;;
         read|*)
             printf '\n%s\n%s\n' "${title}" "${prompt}" >&2
@@ -165,7 +177,7 @@ tui_choose() {
                 read -rp "Select [1-${#choices[@]}]: " sel </dev/tty
                 if [[ "${sel}" =~ ^[0-9]+$ ]] && \
                    (( sel >= 1 && sel <= ${#choices[@]} )); then
-                    printf '%s' "${choices[$((sel-1))]}"
+                    _TUI_RESULT="${choices[$((sel-1))]}"
                     break
                 fi
                 printf 'Invalid choice, try again.\n' >&2
@@ -193,11 +205,13 @@ tui_checklist() {
         shift 2
     done
 
+    _TUI_RESULT=""
+
     case "${INSTALLER_TUI_BACKEND}" in
         gum)
             # gum choose --no-limit lets the user select multiple items.
             # We can't pre-check items natively; list all tags so the user picks.
-            gum choose --no-limit --header="${title}" "${tags[@]}"
+            _TUI_RESULT=$(gum choose --no-limit --header="${title}" "${tags[@]}")
             ;;
         whiptail)
             # Build checklist items: tag description on|off
@@ -214,7 +228,7 @@ tui_checklist() {
             # whiptail returns quoted strings; strip quotes
             # shellcheck disable=SC2001
             result=$(printf '%s' "${result}" | sed 's/"//g')
-            printf '%s' "${result}"
+            _TUI_RESULT="${result}"
             ;;
         read|*)
             printf '\n%s\n%s\n' "${title}" "${prompt}" >&2
@@ -231,7 +245,7 @@ tui_checklist() {
                     selected_items+=("${tags[$i]}")
                 fi
             done
-            printf '%s' "${selected_items[*]}"
+            _TUI_RESULT="${selected_items[*]}"
             ;;
     esac
 }
@@ -294,9 +308,10 @@ tui_input_validated() {
 
     local value
     while true; do
-        value=$(tui_input "${title}" "${prompt}" "${default}")
+        tui_input "${title}" "${prompt}" "${default}"
+        value="${_TUI_RESULT}"
         if "${validator_fn}" "${value}"; then
-            printf '%s' "${value}"
+            _TUI_RESULT="${value}"
             return 0
         else
             tui_message "Invalid Input" "The value '${value}' is not valid. Please try again."

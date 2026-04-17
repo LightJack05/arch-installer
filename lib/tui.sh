@@ -56,7 +56,7 @@ tui_message() {
                 --border rounded \
                 --padding "1 2" \
                 --margin "1" \
-                "${title}" "${body}" >&2
+                "${title}" "$(printf '%b' "${body}")" >&2
             # gum style just prints; read a keypress to let the user dismiss
             read -rsp "(press enter to continue)" </dev/tty
             printf '\n' >&2

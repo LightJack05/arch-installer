@@ -80,10 +80,8 @@ compute_swap_defaults() {
 # Using stdin avoids the plaintext appearing in the process argument list.
 # ==============================================================================
 hash_password() {
-    # Read plaintext from stdin to avoid it appearing in ps output.
-    local plaintext
-    IFS= read -r plaintext
-    printf '%s' "${plaintext}" | openssl passwd -6 -stdin
+    # Plaintext is piped in on stdin to avoid it appearing in the process list.
+    openssl passwd -6 -stdin
 }
 
 # ==============================================================================

@@ -78,6 +78,13 @@ main() {
             ;;
     esac
 
+    # btrfs roots need rootflags=subvol=@ so the kernel mounts the right subvol.
+    local fstype
+    fstype=$(findmnt -no FSTYPE /)
+    if [[ "${fstype}" == "btrfs" ]]; then
+        cmdline="${cmdline%$'\n'} rootflags=subvol=@"
+    fi
+
     boot_write_cmdline "${cmdline}"
 
     if [[ "${SECURE_BOOT:-0}" == "1" ]]; then

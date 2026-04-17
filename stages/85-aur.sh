@@ -23,7 +23,7 @@ main() {
     run chown "${USERNAME}:${USERNAME}" "$build_dir"
 
     log_info "building yay as ${USERNAME}"
-    run sudo -u "$USERNAME" bash -c "
+    run sudo -u "$USERNAME" -H bash -c "
         set -Eeuo pipefail
         cd '${build_dir}'
         rm -rf yay
@@ -44,7 +44,7 @@ main() {
 
     if (( ${#pkgs[@]} > 0 )); then
         log_info "installing ${#pkgs[@]} AUR packages as ${USERNAME}"
-        run sudo -u "$USERNAME" yay -S \
+        run sudo -u "$USERNAME" -H yay -S \
             --noconfirm --needed \
             --answerclean N --answerdiff N --answeredit N \
             --removemake --cleanafter \

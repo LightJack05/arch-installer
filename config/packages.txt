@@ -12,7 +12,6 @@ blueman
 bluez-utils
 breeze
 breeze-gtk
-bridge-utils
 brightnessctl
 chromium
 chrono-date

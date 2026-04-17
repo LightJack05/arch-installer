@@ -105,8 +105,10 @@ enc_tpm_enroll() {
     printf '%s' "${pin}" > "${pin_file}"
 
     # Ensure both temp files are shredded even if the enrollment fails.
-    # (set -e + ERR trap will exit the script, but the trap below fires first.)
-    trap 'shred -u "${pass_file}" "${pin_file}" 2>/dev/null || rm -f "${pass_file}" "${pin_file}"' RETURN
+    # The trap resets itself first — bash RETURN traps are not function-local
+    # and would otherwise fire on every subsequent function return, causing
+    # "unbound variable" errors once pass_file/pin_file go out of scope.
+    trap 'trap - RETURN; shred -u "${pass_file}" "${pin_file}" 2>/dev/null || rm -f "${pass_file}" "${pin_file}"' RETURN
 
     # systemd-cryptenroll (>= v252) reads the TPM2 PIN from the $PIN env var
     # when --tpm2-with-pin=yes is set.  We export it from a subshell so it
@@ -126,8 +128,8 @@ enc_tpm_enroll() {
     ' _ "${_pin_val}" "${pcrs}" "${pass_file}" "${dev}"
     unset _pin_val _pass_val
 
-    # Shred both temp files even on error (trap handles abnormal exits via
-    # set -Eeuo pipefail, but we clean up here for the success path).
+    # Reset the RETURN trap and shred temp files on the success path.
+    trap - RETURN
     shred -u "${pass_file}" "${pin_file}" 2>/dev/null || rm -f "${pass_file}" "${pin_file}"
 }
 

@@ -12,6 +12,14 @@
 #   - build UKI via boot_rebuild_uki
 #   - sb_sign_all  (sign after build so the signed files are current)
 #
+# For scheme C (TPM2+PIN):
+#   - stage 20 enrolled TPM2 with PCR 0 only so the first boot works regardless
+#     of Secure Boot state changes during installation.
+#   - This stage queues a post-reboot task (via lib/post-reboot.sh) that
+#     re-enrolls TPM2 with PCR 0+7 on first boot, once the system has booted
+#     with its final Secure Boot state.  Credentials are stored root-only on
+#     the encrypted partition and shredded immediately after re-enrollment.
+#
 # For scheme D: derive UUIDs from the mounted filesystems via findmnt + blkid.
 
 set -Eeuo pipefail
@@ -21,6 +29,8 @@ source "$(dirname -- "${BASH_SOURCE[0]}")/../lib/common.sh"
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib/config.sh"
 # shellcheck source=../lib/bootloader.sh
 source "$(dirname -- "${BASH_SOURCE[0]}")/../lib/bootloader.sh"
+# shellcheck source=../lib/post-reboot.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/../lib/post-reboot.sh"
 
 main() {
     cfg_load
@@ -105,6 +115,48 @@ main() {
         log_info "secure boot: UKI signed"
     else
         boot_rebuild_uki
+    fi
+
+    # Scheme C: queue a first-boot re-enrollment of TPM2 with PCR 0+7.
+    # Stage 20 used PCR 0 only because PCR 7 (Secure Boot state) is a boot-time
+    # measurement — it cannot reflect key changes made during this session.
+    if [[ "${INSTALL_MODE}" == "C" ]]; then
+        cfg_require LUKS_UUID LUKS_PASSPHRASE TPM_PIN
+
+        post_reboot_ensure_framework
+
+        # Store credentials root-only on the encrypted partition.
+        local creds_dir="/root/.tpm2-reenroll"
+        install -d -m 700 "${creds_dir}"
+        printf '%s' "${LUKS_UUID}"       > "${creds_dir}/uuid"
+        printf '%s' "${LUKS_PASSPHRASE}" > "${creds_dir}/passphrase"
+        printf '%s' "${TPM_PIN}"         > "${creds_dir}/pin"
+        chmod 600 "${creds_dir}/passphrase" "${creds_dir}/pin"
+
+        cat > "${POST_REBOOT_DIR}/10-tpm2-reenroll.sh" << '_ENROLL_EOF_'
+#!/bin/bash
+set -euo pipefail
+CREDS=/root/.tpm2-reenroll
+[[ -d "${CREDS}" ]] || exit 0
+UUID=$(cat "${CREDS}/uuid")
+DEV=$(blkid -l -t UUID="${UUID}" -o device)
+[[ -n "${DEV}" ]] || { echo "tpm2-reenroll: UUID ${UUID} not found" >&2; exit 1; }
+# Shred credentials on exit regardless of success or failure.
+trap 'find "${CREDS}" -type f -exec shred -u {} \; 2>/dev/null; rm -rf "${CREDS}"' EXIT
+# Wipe the bootstrap PCR-0-only slot enrolled during installation.
+systemd-cryptenroll --wipe-slot=tpm2 \
+    --unlock-key-file="${CREDS}/passphrase" "${DEV}" || true
+# Enroll with PCR 0+7: firmware code + Secure Boot state.
+PIN=$(cat "${CREDS}/pin") systemd-cryptenroll \
+    --tpm2-device=auto \
+    --tpm2-with-pin=yes \
+    --tpm2-pcrs=0+7 \
+    --unlock-key-file="${CREDS}/passphrase" \
+    "${DEV}"
+echo "tpm2-reenroll: TPM2 re-enrolled with PCR 0+7 binding"
+_ENROLL_EOF_
+        chmod 755 "${POST_REBOOT_DIR}/10-tpm2-reenroll.sh"
+        log_info "TPM2 re-enrollment queued for first boot (will bind PCR 0+7)"
     fi
 
 }

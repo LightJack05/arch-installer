@@ -83,12 +83,16 @@ enc_tpm_wipe() {
 #     SYSTEMD_CRYPTENROLL_TPM2_PIN env var (supported since systemd v252).
 #     As a belt-and-suspenders fallback we also write it to a second temp file
 #     used with --tpm2-pin-file if the env approach is unavailable.
-# PCRs default to "0+7".
+# PCRs default to "0" (firmware code only).
+#   PCR 7 (Secure Boot state) is intentionally excluded: enrollment happens in
+#   the live ISO session, but Secure Boot key changes (stage 60 secure-boot.sh)
+#   take effect only on the next boot — causing a PCR 7 mismatch that prevents
+#   TPM2 unsealing on the very first boot of the installed system.
 #
 # NOTE: Function signature is enc_tpm_enroll <dev> <passphrase> <pin> [<pcrs>]
 # so callers must pass the passphrase (not just the PIN).
 enc_tpm_enroll() {
-    local dev="$1" passphrase="$2" pin="$3" pcrs="${4:-0+7}"
+    local dev="$1" passphrase="$2" pin="$3" pcrs="${4:-0}"
 
     log_info "enc_tpm_enroll: enrolling TPM2+PIN on ${dev} (PCRs=${pcrs})"
 

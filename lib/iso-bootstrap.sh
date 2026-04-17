@@ -43,7 +43,7 @@ iso_bootstrap_all() {
     # ------------------------------------------------------------------
     # Required live-ISO tools (warn on failure, never die)
     # ------------------------------------------------------------------
-    local required_pkgs=(sbctl gh)
+    local required_pkgs=(sbctl github-cli)
     local pkg
     for pkg in "${required_pkgs[@]}"; do
         if pacman -S --noconfirm --needed "${pkg}" 2>/dev/null; then

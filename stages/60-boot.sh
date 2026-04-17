@@ -4,7 +4,7 @@
 # Always:
 #   - write HOOKS=(systemd autodetect modconf keyboard sd-vconsole block sd-encrypt filesystems fsck)
 #   - write /etc/mkinitcpio.d/linux.preset for UKI output
-#   - build cmdline with resume=/resume_offset (from /tmp/installer.env)
+#   - build cmdline with security params (iommu, lockdown)
 #   - mkinitcpio -P  →  /efi/EFI/BOOT/BOOTX64.EFI
 #
 # If SECURE_BOOT=1:
@@ -34,7 +34,7 @@ source "$(dirname -- "${BASH_SOURCE[0]}")/../lib/post-reboot.sh"
 
 main() {
     cfg_load
-    cfg_require INSTALL_MODE RESUME_OFFSET
+    cfg_require INSTALL_MODE
 
     boot_write_mkinitcpio_conf
     boot_write_preset
@@ -44,15 +44,15 @@ main() {
         A)
             local root_uuid
             root_uuid=$(blkid -s UUID -o value "$(findmnt -no SOURCE /)")
-            cmdline=$(boot_build_cmdline_scheme_a "${root_uuid}" "${RESUME_OFFSET}")
+            cmdline=$(boot_build_cmdline_scheme_a "${root_uuid}")
             ;;
         B)
             cfg_require LUKS_UUID
-            cmdline=$(boot_build_cmdline_scheme_b "${LUKS_UUID}" "${RESUME_OFFSET}")
+            cmdline=$(boot_build_cmdline_scheme_b "${LUKS_UUID}")
             ;;
         C)
             cfg_require LUKS_UUID
-            cmdline=$(boot_build_cmdline_scheme_c "${LUKS_UUID}" "${RESUME_OFFSET}")
+            cmdline=$(boot_build_cmdline_scheme_c "${LUKS_UUID}")
             ;;
         D)
             # Detect whether root device is a LUKS mapper or a plain partition.
@@ -72,15 +72,15 @@ main() {
                 # Determine whether TPM2 options are in use by checking enrolled keyslots.
                 if systemd-cryptenroll --list-devices 2>/dev/null | grep -q "${backing_dev}" \
                     && cryptsetup luksDump "${backing_dev}" 2>/dev/null | grep -q 'tpm2'; then
-                    cmdline=$(boot_build_cmdline_scheme_c "${luks_uuid}" "${RESUME_OFFSET}")
+                    cmdline=$(boot_build_cmdline_scheme_c "${luks_uuid}")
                 else
-                    cmdline=$(boot_build_cmdline_scheme_b "${luks_uuid}" "${RESUME_OFFSET}")
+                    cmdline=$(boot_build_cmdline_scheme_b "${luks_uuid}")
                 fi
             else
                 # Plain (unencrypted) root.
                 local root_uuid
                 root_uuid=$(blkid -s UUID -o value "${root_source}")
-                cmdline=$(boot_build_cmdline_scheme_a "${root_uuid}" "${RESUME_OFFSET}")
+                cmdline=$(boot_build_cmdline_scheme_a "${root_uuid}")
             fi
             ;;
         *)

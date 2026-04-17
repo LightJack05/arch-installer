@@ -59,8 +59,13 @@ compute_swap_defaults() {
     ram_kib=$(awk '/^MemTotal:/ { print $2 }' /proc/meminfo)
     ram_mib=$(( ram_kib / 1024 ))
 
-    # ceil(1.5 * RAM_MiB) = (RAM_MiB * 3 + 1) / 2
-    SWAPFILE_SIZE_MIB=$(( (ram_mib * 3 + 1) / 2 ))
+    # Overflow swapfile only (no hibernation): RAM/8 capped at 4 GiB.
+    local swapfile_candidate=$(( ram_mib / 8 ))
+    if (( swapfile_candidate > 4096 )); then
+        SWAPFILE_SIZE_MIB=4096
+    else
+        SWAPFILE_SIZE_MIB=${swapfile_candidate}
+    fi
 
     # min(RAM_MiB / 2, 8192)
     local zram_candidate=$(( ram_mib / 2 ))

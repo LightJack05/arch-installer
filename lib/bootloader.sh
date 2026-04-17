@@ -6,14 +6,18 @@
 # Hook line: systemd autodetect modconf keyboard sd-vconsole block sd-encrypt filesystems fsck
 # UKI outputs: /efi/EFI/BOOT/BOOTX64.EFI (default), /efi/EFI/Linux/arch-linux-fallback.efi
 #
+# Security parameters included in all cmdlines:
+#   iommu=force intel_iommu=on amd_iommu=on  — enforce IOMMU on all devices (DMA protection)
+#   lockdown=confidentiality                  — block kernel memory reads; implies no hibernation
+#
 # Functions:
 #   boot_write_mkinitcpio_conf
 #   boot_write_preset
-#   boot_build_cmdline_scheme_a <root_uuid> <resume_offset>   — echo cmdline
-#   boot_build_cmdline_scheme_b <cryptroot_uuid> <resume_offset>
-#   boot_build_cmdline_scheme_c <cryptroot_uuid> <resume_offset>
+#   boot_build_cmdline_scheme_a <root_uuid>        — echo cmdline
+#   boot_build_cmdline_scheme_b <cryptroot_uuid>
+#   boot_build_cmdline_scheme_c <cryptroot_uuid>
 #   boot_write_cmdline <cmdline>
-#   boot_rebuild_uki                                          — mkinitcpio -P
+#   boot_rebuild_uki                               — mkinitcpio -P
 
 set -Eeuo pipefail
 
@@ -41,22 +45,23 @@ fallback_options="-S autodetect"
 EOF
 }
 
+_SECURITY_PARAMS='iommu=force intel_iommu=on amd_iommu=on lockdown=confidentiality'
+
 boot_build_cmdline_scheme_a() {
-    local root_uuid="$1" resume_offset="$2"
-    printf 'root=UUID=%s resume=UUID=%s resume_offset=%s rw\n' \
-        "${root_uuid}" "${root_uuid}" "${resume_offset}"
+    local root_uuid="$1"
+    printf 'root=UUID=%s rw %s\n' "${root_uuid}" "${_SECURITY_PARAMS}"
 }
 
 boot_build_cmdline_scheme_b() {
-    local luks_uuid="$1" resume_offset="$2"
-    printf 'rd.luks.name=%s=cryptroot root=/dev/mapper/cryptroot resume=/dev/mapper/cryptroot resume_offset=%s rw\n' \
-        "${luks_uuid}" "${resume_offset}"
+    local luks_uuid="$1"
+    printf 'rd.luks.name=%s=cryptroot root=/dev/mapper/cryptroot rw %s\n' \
+        "${luks_uuid}" "${_SECURITY_PARAMS}"
 }
 
 boot_build_cmdline_scheme_c() {
-    local luks_uuid="$1" resume_offset="$2"
-    printf 'rd.luks.name=%s=cryptroot rd.luks.options=%s=tpm2-device=auto root=/dev/mapper/cryptroot resume=/dev/mapper/cryptroot resume_offset=%s rw\n' \
-        "${luks_uuid}" "${luks_uuid}" "${resume_offset}"
+    local luks_uuid="$1"
+    printf 'rd.luks.name=%s=cryptroot rd.luks.options=%s=tpm2-device=auto root=/dev/mapper/cryptroot rw %s\n' \
+        "${luks_uuid}" "${luks_uuid}" "${_SECURITY_PARAMS}"
 }
 
 boot_write_cmdline() {

@@ -43,12 +43,22 @@ main() {
 
     if (( ${#pkgs[@]} > 0 )); then
         log_info "installing ${#pkgs[@]} AUR packages as ${USERNAME}"
-        run sudo -u "$USERNAME" -H yay -S \
-            --noconfirm --needed \
-            --answerclean N --answerdiff N --answeredit N \
-            --removemake --cleanafter \
-            -- "${pkgs[@]}"
-        log_info "AUR package installation complete"
+        local failed=()
+        for pkg in "${pkgs[@]}"; do
+            if ! sudo -u "$USERNAME" -H yay -S \
+                    --noconfirm --needed \
+                    --answerclean N --answerdiff N --answeredit N \
+                    --removemake --cleanafter \
+                    -- "$pkg"; then
+                log_warn "AUR package failed to install (skipping): ${pkg}"
+                failed+=("$pkg")
+            fi
+        done
+        if (( ${#failed[@]} > 0 )); then
+            log_info "AUR installation complete — ${#failed[@]} package(s) skipped: ${failed[*]}"
+        else
+            log_info "AUR package installation complete"
+        fi
     else
         log_info "AUR package list is empty — nothing to install"
     fi

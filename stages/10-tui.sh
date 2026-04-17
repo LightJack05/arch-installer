@@ -23,10 +23,9 @@
 #  18.  dotfiles opt-out (default on)
 #        └─ if on: run `gh auth login`, capture token → /tmp/installer.ghtoken (0600)
 #  19.  secure boot opt-in (warn if not in Setup Mode)
-#  20.  surface kernel opt-in
-#  21.  additional optional scripts (checklist from optional/)
-#  22.  summary recap (go back to any screen)
-#  23.  final destructive confirmation (only before scheme A/B/C wipes)
+#  20.  additional optional scripts (checklist from optional/)
+#  21.  summary recap (go back to any screen)
+#  22.  final destructive confirmation (only before scheme A/B/C wipes)
 #
 # Swapfile and zRAM sizes are auto-computed from RAM and stored without
 # prompting; see config/defaults.env and compute_swap_defaults below.
@@ -48,7 +47,7 @@ source "$(dirname -- "${BASH_SOURCE[0]}")/../lib/tui.sh"
 # shellcheck source=../config/defaults.env
 source "$(dirname -- "${BASH_SOURCE[0]}")/../config/defaults.env"
 
-readonly TOTAL_STEPS=23
+readonly TOTAL_STEPS=22
 
 # ==============================================================================
 # Helper: compute_swap_defaults
@@ -447,20 +446,9 @@ main() {
     fi
 
     # --------------------------------------------------------------------------
-    # Step 20/23: Surface kernel (default off)
+    # Step 20/22: Additional optional scripts
     # --------------------------------------------------------------------------
-    tui_step 20 "${TOTAL_STEPS}" "Surface Kernel"
-
-    if tui_confirm "Surface Kernel" "Install linux-surface kernel? (for Microsoft Surface devices — default: no)"; then
-        cfg_set SURFACE_KERNEL 1
-    else
-        cfg_set SURFACE_KERNEL 0
-    fi
-
-    # --------------------------------------------------------------------------
-    # Step 21/23: Additional optional scripts
-    # --------------------------------------------------------------------------
-    tui_step 21 "${TOTAL_STEPS}" "Optional Scripts"
+    tui_step 20 "${TOTAL_STEPS}" "Optional Scripts"
 
     local optional_dir
     optional_dir="$(dirname -- "${BASH_SOURCE[0]}")/../optional"
@@ -473,8 +461,7 @@ main() {
             local basename_script
             basename_script="$(basename "${script}")"
             # Skip scripts already managed by dedicated TUI steps
-            if [[ "${basename_script}" == "secure-boot.sh" || \
-                  "${basename_script}" == "surface-kernel.sh" ]]; then
+            if [[ "${basename_script}" == "secure-boot.sh" ]]; then
                 continue
             fi
             optional_tags+=("${basename_script}")
@@ -499,9 +486,9 @@ main() {
     fi
 
     # --------------------------------------------------------------------------
-    # Step 22/23: Summary recap
+    # Step 21/22: Summary recap
     # --------------------------------------------------------------------------
-    tui_step 22 "${TOTAL_STEPS}" "Summary"
+    tui_step 21 "${TOTAL_STEPS}" "Summary"
 
     # Reload all persisted values into the current shell
     cfg_load
@@ -541,9 +528,9 @@ main() {
     fi
 
     # --------------------------------------------------------------------------
-    # Step 23/23: Final destructive confirmation (skip for mode D)
+    # Step 22/22: Final destructive confirmation (skip for mode D)
     # --------------------------------------------------------------------------
-    tui_step 23 "${TOTAL_STEPS}" "Final Confirmation"
+    tui_step 22 "${TOTAL_STEPS}" "Final Confirmation"
 
     if [[ "${INSTALL_MODE}" != "D" ]]; then
         local disk_info

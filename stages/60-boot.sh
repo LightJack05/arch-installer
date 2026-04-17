@@ -100,10 +100,6 @@ main() {
         boot_rebuild_uki
     fi
 
-    if [[ "${SURFACE_KERNEL:-0}" == "1" ]]; then
-        log_info "installing linux-surface kernel"
-        "${INSTALLER_ROOT}/optional/surface-kernel.sh"
-    fi
 }
 
 main "$@"

@@ -19,8 +19,7 @@ main() {
 
     # Build yay as the user in a temp build dir
     local build_dir="/home/${USERNAME}/.cache/installer-build"
-    run mkdir -p "$build_dir"
-    run chown "${USERNAME}:${USERNAME}" "$build_dir"
+    run sudo -u "$USERNAME" -H mkdir -p "$build_dir"
 
     log_info "building yay as ${USERNAME}"
     run sudo -u "$USERNAME" -H bash -c "

@@ -8,7 +8,7 @@
 #   enc_format <dev> <passphrase>           — cryptsetup luksFormat (argon2id)
 #   enc_open <dev> <passphrase> [<name>]    — cryptsetup open → /dev/mapper/<name>
 #   enc_close [<name>]                      — cryptsetup close
-#   enc_tpm_wipe <dev>                      — systemd-cryptenroll --wipe-slot=tpm2 + tpm2_clear -c p
+#   enc_tpm_wipe <dev>                      — systemd-cryptenroll --wipe-slot=tpm2
 #   enc_tpm_enroll <dev> <pin> [<pcrs>]     — tpm2-device=auto, tpm2-with-pin=yes, pcrs=0+7 by default
 #   enc_get_luks_uuid <dev>                 — echo LUKS header UUID
 
@@ -64,19 +64,16 @@ enc_close() {
 }
 
 # enc_tpm_wipe <dev>
-# Clear any prior TPM2 keyslots from the LUKS header, then wipe the TPM itself.
+# Clear any prior TPM2 keyslots from the LUKS header.
 # This ensures a clean slate before enrolling a new PIN-protected TPM2 key.
+# Note: tpm2_clear -c p (platform hierarchy) is not callable from the OS, and
+# a full TPM clear is not needed — wiping the LUKS keyslot is sufficient.
 enc_tpm_wipe() {
     local dev="$1"
 
     log_info "enc_tpm_wipe: clearing prior TPM2 keyslot from LUKS header on ${dev}"
     # Remove prior TPM keyslot if any (OK if none exist).
     systemd-cryptenroll --wipe-slot=tpm2 "${dev}" 2>/dev/null || true
-
-    log_info "enc_tpm_wipe: wiping TPM2 via tpm2_clear"
-    if ! tpm2_clear -c p 2>/dev/null; then
-        die "tpm2_clear failed. Clear the TPM from firmware settings, then re-run the installer."
-    fi
 }
 
 # enc_tpm_enroll <dev> <passphrase> <pin> [<pcrs>]

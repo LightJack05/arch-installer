@@ -142,12 +142,16 @@ UUID=$(cat "${CREDS}/uuid")
 DEV=$(blkid -l -t UUID="${UUID}" -o device)
 [[ -n "${DEV}" ]] || { echo "tpm2-reenroll: UUID ${UUID} not found" >&2; exit 1; }
 # Shred credentials on exit regardless of success or failure.
-trap 'find "${CREDS}" -type f -exec shred -u {} \; 2>/dev/null; rm -rf "${CREDS}"' EXIT
+trap 'unset PIN; find "${CREDS}" -type f -exec shred -u {} \; 2>/dev/null; rm -rf "${CREDS}"' EXIT
+# Export NEWPIN so the enrollment call reads the PIN non-interactively.
+# systemd-cryptenroll reads $NEWPIN (not $PIN) when setting a new TPM2 PIN.
+export NEWPIN
+NEWPIN=$(cat "${CREDS}/pin")
 # Wipe the bootstrap PCR-0-only slot enrolled during installation.
 systemd-cryptenroll --wipe-slot=tpm2 \
     --unlock-key-file="${CREDS}/passphrase" "${DEV}" || true
 # Enroll with PCR 0+7: firmware code + Secure Boot state.
-PIN=$(cat "${CREDS}/pin") systemd-cryptenroll \
+systemd-cryptenroll \
     --tpm2-device=auto \
     --tpm2-with-pin=yes \
     --tpm2-pcrs=0+7 \

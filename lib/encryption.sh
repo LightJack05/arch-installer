@@ -114,15 +114,15 @@ enc_tpm_enroll() {
     # "unbound variable" errors once pass_file/pin_file go out of scope.
     trap 'trap - RETURN; shred -u "${pass_file}" "${pin_file}" 2>/dev/null || rm -f "${pass_file}" "${pin_file}"' RETURN
 
-    # systemd-cryptenroll (>= v252) reads the TPM2 PIN from the $PIN env var
-    # when --tpm2-with-pin=yes is set.  We export it from a subshell so it
-    # never appears on any process command line (the parent shell sets it in
-    # the child's environment, not as an argv token).
+    # systemd-cryptenroll (>= v252) reads the new TPM2 PIN from the $NEWPIN
+    # env var when --tpm2-with-pin=yes is set.  We export it from a subshell
+    # so it never appears on any process command line (the parent shell sets
+    # it in the child's environment, not as an argv token).
     local _pin_val _pass_val
     _pin_val="$(cat "${pin_file}")"
     _pass_val="$(cat "${pass_file}")"
     run_quiet bash -c '
-        export PIN="$1"
+        export NEWPIN="$1"
         systemd-cryptenroll \
             --tpm2-device=auto \
             --tpm2-with-pin=yes \

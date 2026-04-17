@@ -3,7 +3,7 @@
 # Run from the Arch ISO (live environment).
 #
 # Flow:
-#   00-precheck → iso-bootstrap → 10-tui → 20-disk → 25-swap → 30-pacstrap
+#   00-precheck → iso-bootstrap-all → 10-tui → 20-disk → 25-swap → 30-pacstrap
 #   → 40-chroot → (inside chroot) 50-system → 60-boot → 70-users → 80-packages
 #   → 85-aur → 90-services → 95-dotfiles → 99-finalize
 #
@@ -23,10 +23,11 @@ export INSTALLER_ROOT
 source "${INSTALLER_ROOT}/lib/common.sh"
 # shellcheck source=lib/config.sh
 source "${INSTALLER_ROOT}/lib/config.sh"
+# shellcheck source=lib/iso-bootstrap.sh
+source "${INSTALLER_ROOT}/lib/iso-bootstrap.sh"
 
-# ISO-side stages (run on the live environment)
+# ISO-side stages (run on the live environment, after iso_bootstrap_all)
 readonly ISO_STAGES=(
-    "00-precheck"
     "10-tui"
     "20-disk"
     "25-swap"
@@ -64,7 +65,8 @@ main() {
     fi
 
     log_info "Arch installer starting on live ISO"
-    iso_bootstrap_install_deps
+    run_stage "00-precheck"
+    iso_bootstrap_all
     for stage in "${ISO_STAGES[@]}"; do
         run_stage "${stage}"
     done

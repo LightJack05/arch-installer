@@ -418,6 +418,8 @@ main() {
 
     if tui_confirm "Dotfiles" "Set up dotfiles automatically? (gh auth login will run now — default: yes)" "yes"; then
         cfg_set DOTFILES_ENABLED 1
+        cfg_set DOTFILES_REPO "${DOTFILES_REPO}"
+        cfg_set DOTFILES_SETUP_SCRIPT "${DOTFILES_SETUP_SCRIPT}"
         log_info "running gh auth login..."
         if ! gh auth login </dev/tty >/dev/tty 2>/dev/tty; then
             tui_message "GitHub Auth Failed" \

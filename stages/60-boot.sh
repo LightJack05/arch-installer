@@ -20,6 +20,10 @@
 #     with its final Secure Boot state.  Credentials are stored root-only on
 #     the encrypted partition and shredded immediately after re-enrollment.
 #
+# For scheme E (TPM2, no PIN):
+#   - identical cmdline to C (rd.luks.options=tpm2-device=auto).
+#   - queues a post-reboot re-enrollment with PCR 0+7, no PIN.
+#
 # For scheme D: derive UUIDs from the mounted filesystems via findmnt + blkid.
 
 set -Eeuo pipefail
@@ -57,6 +61,10 @@ main() {
             cmdline=$(boot_build_cmdline_scheme_b "${LUKS_UUID}")
             ;;
         C)
+            cfg_require LUKS_UUID
+            cmdline=$(boot_build_cmdline_scheme_c "${LUKS_UUID}")
+            ;;
+        E)
             cfg_require LUKS_UUID
             cmdline=$(boot_build_cmdline_scheme_c "${LUKS_UUID}")
             ;;
@@ -167,6 +175,41 @@ echo "tpm2-reenroll: TPM2 re-enrolled with PCR 0+7 binding"
 _ENROLL_EOF_
         chmod 755 "${POST_REBOOT_DIR}/10-tpm2-reenroll.sh"
         log_info "TPM2 re-enrollment queued for first boot (will bind PCR 0+7)"
+    fi
+
+    # Scheme E: queue a first-boot re-enrollment of TPM2 with PCR 0+7 (no PIN).
+    if [[ "${INSTALL_MODE}" == "E" ]]; then
+        cfg_require LUKS_UUID LUKS_PASSPHRASE
+
+        post_reboot_ensure_framework
+
+        local creds_dir="/root/.tpm2-reenroll"
+        install -d -m 700 "${creds_dir}"
+        printf '%s' "${LUKS_UUID}"       > "${creds_dir}/uuid"
+        printf '%s' "${LUKS_PASSPHRASE}" > "${creds_dir}/passphrase"
+        chmod 600 "${creds_dir}/passphrase"
+
+        cat > "${POST_REBOOT_DIR}/10-tpm2-reenroll.sh" << '_ENROLL_EOF_'
+#!/bin/bash
+set -euo pipefail
+CREDS=/root/.tpm2-reenroll
+[[ -d "${CREDS}" ]] || exit 0
+UUID=$(cat "${CREDS}/uuid")
+DEV=$(blkid -l -t UUID="${UUID}" -o device)
+[[ -n "${DEV}" ]] || { echo "tpm2-reenroll: UUID ${UUID} not found" >&2; exit 1; }
+trap 'find "${CREDS}" -type f -exec shred -u {} \; 2>/dev/null; rm -rf "${CREDS}"' EXIT
+systemd-cryptenroll --wipe-slot=tpm2 \
+    --unlock-key-file="${CREDS}/passphrase" "${DEV}" || true
+systemd-cryptenroll \
+    --tpm2-device=auto \
+    --tpm2-with-pin=no \
+    --tpm2-pcrs=0+7 \
+    --unlock-key-file="${CREDS}/passphrase" \
+    "${DEV}"
+echo "tpm2-reenroll: TPM2 re-enrolled with PCR 0+7 binding (no PIN)"
+_ENROLL_EOF_
+        chmod 755 "${POST_REBOOT_DIR}/10-tpm2-reenroll.sh"
+        log_info "TPM2 re-enrollment queued for first boot (will bind PCR 0+7, no PIN)"
     fi
 
 }

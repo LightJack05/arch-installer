@@ -18,8 +18,8 @@
 #  13.  user shell
 #  14.  root password (twice, empty allowed → root login disabled)
 #  15.  user password (twice, required)
-#  16.  LUKS passphrase (twice)                  — B+C
-#  17.  TPM2 PIN (twice) + TPM-wipe confirmation — C
+#  16.  LUKS passphrase (twice)                  — B+C+E
+#  17.  TPM2 PIN (twice) + TPM-wipe confirmation — C only
 #  18.  dotfiles opt-out (default on)
 #        └─ if on: run `gh auth login`, capture token → /tmp/installer.ghtoken (0600)
 #   7.  zRAM size (MiB, default: min(RAM/2, 16 GiB))
@@ -158,7 +158,8 @@ main() {
         "A - Bare (ESP + root)" \
         "B - LUKS passphrase" \
         "C - LUKS + TPM2-PIN" \
-        "D - Manual (already mounted)"
+        "D - Manual (already mounted)" \
+        "E - LUKS + TPM2 (no PIN)"
     ans="${_TUI_RESULT}"
     local INSTALL_MODE="${ans:0:1}"
     cfg_set INSTALL_MODE "${INSTALL_MODE}"
@@ -400,7 +401,7 @@ main() {
     # --------------------------------------------------------------------------
     # Step 18/25: LUKS passphrase (modes B + C)
     # --------------------------------------------------------------------------
-    if [[ "${INSTALL_MODE}" == "B" || "${INSTALL_MODE}" == "C" ]]; then
+    if [[ "${INSTALL_MODE}" == "B" || "${INSTALL_MODE}" == "C" || "${INSTALL_MODE}" == "E" ]]; then
         tui_step 18 "${TOTAL_STEPS}" "LUKS Passphrase"
         tui_message "LUKS Passphrase" \
             "This passphrase is the disk encryption recovery method.\nStore it safely — losing it means losing all data on the disk."

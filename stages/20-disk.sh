@@ -5,11 +5,11 @@
 # All inputs come from /tmp/installer.env; no prompts here.
 #
 # Config keys consumed:
-#   INSTALL_MODE    — A | B | C | D
+#   INSTALL_MODE    — A | B | C | D | E
 #   TARGET_DISK     — e.g. /dev/sda  (schemes A/B/C)
 #   FILESYSTEM      — ext4 | btrfs   (schemes A/B/C)
-#   LUKS_PASSPHRASE — passphrase for the LUKS container (schemes B/C)
-#   TPM_PIN         — PIN for TPM2 enrollment (scheme C only)
+#   LUKS_PASSPHRASE — passphrase for the LUKS container (schemes B/C/E)
+#   TPM_PIN         — PIN for TPM2 enrollment (scheme C only; not used by E)
 #   MANUAL_MOUNT    — mountpoint already prepared by the user (scheme D)
 #
 # Config keys written:
@@ -34,7 +34,7 @@ main() {
     cfg_require INSTALL_MODE
 
     case "${INSTALL_MODE}" in
-        A|B|C)
+        A|B|C|E)
             cfg_require TARGET_DISK FILESYSTEM
             ;;
         D)
@@ -60,7 +60,7 @@ main() {
     esac
 
     # -------------------------------------------------------------------------
-    # Schemes A, B, C — destructive operations on TARGET_DISK.
+    # Schemes A, B, C, E — destructive operations on TARGET_DISK.
     # -------------------------------------------------------------------------
 
     disk_is_safe "${TARGET_DISK}"
@@ -137,6 +137,39 @@ main() {
             cfg_set LUKS_UUID    "$(enc_get_luks_uuid "${luks}")"
             cfg_set ROOT_DEVICE  /dev/mapper/cryptroot
             log_info "scheme ${INSTALL_MODE} complete: LUKS_UUID=${LUKS_UUID} ROOT_DEVICE=/dev/mapper/cryptroot"
+            ;;
+
+        # ---------------------------------------------------------------------
+        # Scheme E — ESP + LUKS2 root + TPM2 (no PIN, automatic unsealing).
+        # ---------------------------------------------------------------------
+        E)
+            cfg_require LUKS_PASSPHRASE
+
+            disk_partition_scheme_bc "${TARGET_DISK}"
+            luks="$(disk_data_partition "${TARGET_DISK}")"
+
+            enc_format "${luks}" "${LUKS_PASSPHRASE}"
+            enc_open   "${luks}" "${LUKS_PASSPHRASE}" cryptroot
+
+            enc_tpm_wipe          "${luks}"
+            enc_tpm_enroll_nopin  "${luks}" "${LUKS_PASSPHRASE}"
+
+            fs_mkfs_esp "${esp}"
+
+            if [[ "${FILESYSTEM}" == "btrfs" ]]; then
+                fs_mkfs_root_btrfs /dev/mapper/cryptroot
+                fs_create_btrfs_subvols /dev/mapper/cryptroot
+                fs_mount_btrfs /dev/mapper/cryptroot /mnt
+            else
+                fs_mkfs_root_ext4 /dev/mapper/cryptroot
+                fs_mount_ext4 /dev/mapper/cryptroot /mnt
+            fi
+
+            fs_mount_esp "${esp}" /mnt
+
+            cfg_set LUKS_UUID    "$(enc_get_luks_uuid "${luks}")"
+            cfg_set ROOT_DEVICE  /dev/mapper/cryptroot
+            log_info "scheme E complete: LUKS_UUID=${LUKS_UUID} ROOT_DEVICE=/dev/mapper/cryptroot"
             ;;
     esac
 }

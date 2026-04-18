@@ -10,6 +10,7 @@
 #   enc_close [<name>]                      — cryptsetup close
 #   enc_tpm_wipe <dev>                      — systemd-cryptenroll --wipe-slot=tpm2
 #   enc_tpm_enroll <dev> <pin> [<pcrs>]     — tpm2-device=auto, tpm2-with-pin=yes, pcrs=0+7 by default
+#   enc_tpm_enroll_nopin <dev> <passphrase> [<pcrs>] — tpm2-device=auto, tpm2-with-pin=no, pcrs=0 by default
 #   enc_get_luks_uuid <dev>                 — echo LUKS header UUID
 
 set -Eeuo pipefail
@@ -135,6 +136,36 @@ enc_tpm_enroll() {
     # Reset the RETURN trap and shred temp files on the success path.
     trap - RETURN
     shred -u "${pass_file}" "${pin_file}" 2>/dev/null || rm -f "${pass_file}" "${pin_file}"
+}
+
+# enc_tpm_enroll_nopin <dev> <passphrase> [<pcrs>]
+# Enroll a TPM2 key into the LUKS container WITHOUT requiring a PIN at boot.
+# The TPM2 slot unseals automatically when the measured PCRs match.
+# PCRs default to "0" (firmware code only); same rationale as enc_tpm_enroll
+# for deferring PCR 7 binding until first boot (post-reboot re-enrollment).
+enc_tpm_enroll_nopin() {
+    local dev="$1" passphrase="$2" pcrs="${3:-0}"
+
+    log_info "enc_tpm_enroll_nopin: enrolling TPM2 (no PIN) on ${dev} (PCRs=${pcrs})"
+
+    local pass_file
+    pass_file=$(mktemp)
+    chmod 600 "${pass_file}"
+    printf '%s' "${passphrase}" > "${pass_file}"
+
+    trap 'trap - RETURN; shred -u "${pass_file}" 2>/dev/null || rm -f "${pass_file}"' RETURN
+
+    run_quiet bash -c '
+        systemd-cryptenroll \
+            --tpm2-device=auto \
+            --tpm2-with-pin=no \
+            --tpm2-pcrs="$1" \
+            --unlock-key-file="$2" \
+            "$3"
+    ' _ "${pcrs}" "${pass_file}" "${dev}"
+
+    trap - RETURN
+    shred -u "${pass_file}" 2>/dev/null || rm -f "${pass_file}"
 }
 
 # enc_get_luks_uuid <dev>

@@ -4,6 +4,10 @@
 # Opt-out (DOTFILES_ENABLED=0 to skip). Uses the gh token captured in stage 10
 # (now at /root/.installer-ghtoken, mode 0600). Token is used once, then shredded
 # by stage 99.
+#
+# Config keys (set in stage 10 / defaults.env):
+#   DOTFILES_REPO         — git repository URL to clone
+#   DOTFILES_SETUP_SCRIPT — setup script path relative to the clone directory
 
 set -Eeuo pipefail
 # shellcheck source=../lib/common.sh
@@ -20,8 +24,12 @@ main() {
         return 0
     fi
 
+    cfg_require DOTFILES_REPO DOTFILES_SETUP_SCRIPT
+
     local token_file="/root/.installer-ghtoken"
     local home="/home/${USERNAME}"
+    local clone_dir
+    clone_dir="$(basename "${DOTFILES_REPO}" .git)"
 
     if [[ -s "$token_file" ]]; then
         local token
@@ -38,13 +46,13 @@ main() {
 
         # Clone dotfiles
         run sudo -u "$USERNAME" git clone \
-            https://github.com/LightJack05/dotfiles \
+            "${DOTFILES_REPO}" \
             --recursive \
-            "${home}/dotfiles"
-        log_info "dotfiles cloned to ${home}/dotfiles"
+            "${home}/${clone_dir}"
+        log_info "dotfiles cloned to ${home}/${clone_dir}"
 
         # Run setup script
-        run sudo -u "$USERNAME" "${home}/dotfiles/setup-complete.sh"
+        run sudo -u "$USERNAME" "${home}/${clone_dir}/${DOTFILES_SETUP_SCRIPT}"
         log_info "dotfiles setup script completed"
 
         # Shred the token from the chroot side

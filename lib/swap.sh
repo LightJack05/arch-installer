@@ -21,7 +21,7 @@ swap_write_zram_conf() {
     mkdir -p "${target}/etc/systemd"
     cat > "${target}/etc/systemd/zram-generator.conf" << EOF
 [zram0]
-zram-size = min(ram / 2, ${ZRAM_SIZE_MIB})
+zram-size = ${ZRAM_SIZE_MIB}M
 compression-algorithm = zstd
 swap-priority = 100
 EOF

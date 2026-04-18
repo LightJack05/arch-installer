@@ -22,13 +22,15 @@
 #  17.  TPM2 PIN (twice) + TPM-wipe confirmation — C
 #  18.  dotfiles opt-out (default on)
 #        └─ if on: run `gh auth login`, capture token → /tmp/installer.ghtoken (0600)
+#   7.  zRAM size (MiB, default: min(RAM/2, 16 GiB))
+#   8.  swapfile size (MiB, default: physical RAM size)
 #  19.  secure boot opt-in (warn if not in Setup Mode)
 #  20.  additional optional scripts (checklist from optional/)
 #  21.  summary recap (go back to any screen)
 #  22.  final destructive confirmation (only before scheme A/B/C wipes)
 #
-# Swapfile and zRAM sizes are auto-computed from RAM and stored without
-# prompting; see config/defaults.env and compute_swap_defaults below.
+# Swapfile and zRAM defaults are auto-computed from RAM by compute_swap_defaults;
+# the user is prompted to confirm or override both values.
 #
 # Passwords are hashed via `openssl passwd -6` before cfg_set; plaintext
 # never persists. LUKS passphrase and TPM PIN are written in plaintext
@@ -47,7 +49,7 @@ source "$(dirname -- "${BASH_SOURCE[0]}")/../lib/tui.sh"
 # shellcheck source=../config/defaults.env
 source "$(dirname -- "${BASH_SOURCE[0]}")/../config/defaults.env"
 
-readonly TOTAL_STEPS=23
+readonly TOTAL_STEPS=25
 
 # ==============================================================================
 # Helper: compute_swap_defaults
@@ -59,18 +61,13 @@ compute_swap_defaults() {
     ram_kib=$(awk '/^MemTotal:/ { print $2 }' /proc/meminfo)
     ram_mib=$(( ram_kib / 1024 ))
 
-    # Overflow swapfile only (no hibernation): RAM/8 capped at 4 GiB.
-    local swapfile_candidate=$(( ram_mib / 8 ))
-    if (( swapfile_candidate > 4096 )); then
-        SWAPFILE_SIZE_MIB=4096
-    else
-        SWAPFILE_SIZE_MIB=${swapfile_candidate}
-    fi
+    # Swapfile = physical RAM size (no cap).
+    SWAPFILE_SIZE_MIB=${ram_mib}
 
-    # min(RAM_MiB / 2, 8192)
+    # zRAM = min(RAM / 2, 16384 MiB / 16 GiB)
     local zram_candidate=$(( ram_mib / 2 ))
-    if (( zram_candidate > 8192 )); then
-        ZRAM_SIZE_MIB=8192
+    if (( zram_candidate > 16384 )); then
+        ZRAM_SIZE_MIB=16384
     else
         ZRAM_SIZE_MIB=${zram_candidate}
     fi
@@ -127,12 +124,10 @@ prompt_password_twice() {
 main() {
     cfg_init
     compute_swap_defaults
-    cfg_set SWAPFILE_SIZE_MIB "${SWAPFILE_SIZE_MIB}"
-    cfg_set ZRAM_SIZE_MIB "${ZRAM_SIZE_MIB}"
     log_info "starting TUI"
 
     # --------------------------------------------------------------------------
-    # Step 1/23: Splash
+    # Step 1/25: Splash
     # --------------------------------------------------------------------------
     tui_step 1 "${TOTAL_STEPS}" "Welcome"
 
@@ -144,7 +139,7 @@ main() {
     fi
 
     # --------------------------------------------------------------------------
-    # Step 2/23: Live keyboard layout
+    # Step 2/25: Live keyboard layout
     # --------------------------------------------------------------------------
     tui_step 2 "${TOTAL_STEPS}" "Live Keyboard Layout"
 
@@ -155,7 +150,7 @@ main() {
     cfg_set KEYMAP "${ans}"
 
     # --------------------------------------------------------------------------
-    # Step 3/23: Install mode
+    # Step 3/25: Install mode
     # --------------------------------------------------------------------------
     tui_step 3 "${TOTAL_STEPS}" "Install Mode"
 
@@ -169,7 +164,7 @@ main() {
     cfg_set INSTALL_MODE "${INSTALL_MODE}"
 
     # --------------------------------------------------------------------------
-    # Step 4/23: Manual mount dir (mode D only)
+    # Step 4/25: Manual mount dir (mode D only)
     # --------------------------------------------------------------------------
     local MANUAL_MOUNT="/mnt"
     if [[ "${INSTALL_MODE}" == "D" ]]; then
@@ -190,7 +185,7 @@ main() {
     fi
 
     # --------------------------------------------------------------------------
-    # Step 5/23: Target disk (modes A/B/C)
+    # Step 5/25: Target disk (modes A/B/C)
     # --------------------------------------------------------------------------
     local TARGET_DISK=""
     if [[ "${INSTALL_MODE}" != "D" ]]; then
@@ -241,7 +236,7 @@ main() {
     fi
 
     # --------------------------------------------------------------------------
-    # Step 6/23: Filesystem (modes A/B/C)
+    # Step 6/25: Filesystem (modes A/B/C)
     # --------------------------------------------------------------------------
     if [[ "${INSTALL_MODE}" != "D" ]]; then
         tui_step 6 "${TOTAL_STEPS}" "Filesystem"
@@ -251,9 +246,36 @@ main() {
     fi
 
     # --------------------------------------------------------------------------
-    # Step 7/23: Hostname
+    # Step 7/25: zRAM size
     # --------------------------------------------------------------------------
-    tui_step 7 "${TOTAL_STEPS}" "Hostname"
+    tui_step 7 "${TOTAL_STEPS}" "zRAM Size"
+
+    validate_size_mib() { [[ "$1" =~ ^[1-9][0-9]*$ ]]; }
+    tui_input_validated "zRAM Size" \
+        "zRAM device size in MiB (default: min(RAM/2, 16 GiB))" \
+        "${ZRAM_SIZE_MIB}" \
+        validate_size_mib
+    ans="${_TUI_RESULT}"
+    ZRAM_SIZE_MIB="${ans}"
+    cfg_set ZRAM_SIZE_MIB "${ZRAM_SIZE_MIB}"
+
+    # --------------------------------------------------------------------------
+    # Step 8/25: Swapfile size
+    # --------------------------------------------------------------------------
+    tui_step 8 "${TOTAL_STEPS}" "Swapfile Size"
+
+    tui_input_validated "Swapfile Size" \
+        "Swapfile size in MiB (default: physical RAM size)" \
+        "${SWAPFILE_SIZE_MIB}" \
+        validate_size_mib
+    ans="${_TUI_RESULT}"
+    SWAPFILE_SIZE_MIB="${ans}"
+    cfg_set SWAPFILE_SIZE_MIB "${SWAPFILE_SIZE_MIB}"
+
+    # --------------------------------------------------------------------------
+    # Step 9/25: Hostname
+    # --------------------------------------------------------------------------
+    tui_step 9 "${TOTAL_STEPS}" "Hostname"
 
     validate_hostname() { [[ "$1" =~ ^[a-z0-9][a-z0-9-]{0,62}$ ]]; }
     tui_input_validated "Hostname" \
@@ -264,9 +286,9 @@ main() {
     cfg_set HOSTNAME "${ans}"
 
     # --------------------------------------------------------------------------
-    # Step 8/23: Timezone
+    # Step 10/25: Timezone
     # --------------------------------------------------------------------------
-    tui_step 8 "${TOTAL_STEPS}" "Timezone"
+    tui_step 10 "${TOTAL_STEPS}" "Timezone"
 
     validate_tz() { [[ -f "/usr/share/zoneinfo/$1" ]]; }
     tui_input_validated "Timezone" \
@@ -277,9 +299,9 @@ main() {
     cfg_set TIMEZONE "${ans}"
 
     # --------------------------------------------------------------------------
-    # Step 9/23: Locale
+    # Step 11/25: Locale
     # --------------------------------------------------------------------------
-    tui_step 9 "${TOTAL_STEPS}" "Locale"
+    tui_step 11 "${TOTAL_STEPS}" "Locale"
 
     validate_locale() {
         [[ -f "/usr/share/i18n/locales/$1" ]] || \
@@ -293,9 +315,9 @@ main() {
     cfg_set LOCALE "${ans}"
 
     # --------------------------------------------------------------------------
-    # Step 10/23: Console keymap
+    # Step 12/25: Console keymap
     # --------------------------------------------------------------------------
-    tui_step 10 "${TOTAL_STEPS}" "Console Keymap"
+    tui_step 12 "${TOTAL_STEPS}" "Console Keymap"
 
     tui_input "Console Keymap" \
         "Installed system console keymap" \
@@ -304,9 +326,9 @@ main() {
     cfg_set KEYMAP "${ans}"
 
     # --------------------------------------------------------------------------
-    # Step 11/23: Username
+    # Step 13/25: Username
     # --------------------------------------------------------------------------
-    tui_step 11 "${TOTAL_STEPS}" "Username"
+    tui_step 13 "${TOTAL_STEPS}" "Username"
 
     # Spec: [a-z_][a-z0-9_-]{0,31} (lowercase only; max 32 chars total)
     validate_user() { [[ "$1" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; }
@@ -319,9 +341,9 @@ main() {
     cfg_set USERNAME "${USERNAME}"
 
     # --------------------------------------------------------------------------
-    # Step 12/23: Full name (optional)
+    # Step 14/25: Full name (optional)
     # --------------------------------------------------------------------------
-    tui_step 12 "${TOTAL_STEPS}" "Full Name"
+    tui_step 14 "${TOTAL_STEPS}" "Full Name"
 
     tui_input "Full Name" \
         "User's full name (optional — press Enter to skip)" \
@@ -330,9 +352,9 @@ main() {
     cfg_set USER_FULLNAME "${ans}"
 
     # --------------------------------------------------------------------------
-    # Step 13/23: Shell
+    # Step 15/25: Shell
     # --------------------------------------------------------------------------
-    tui_step 13 "${TOTAL_STEPS}" "User Shell"
+    tui_step 15 "${TOTAL_STEPS}" "User Shell"
 
     tui_input "Shell" \
         "User shell (full path)" \
@@ -341,9 +363,9 @@ main() {
     cfg_set USER_SHELL "${ans}"
 
     # --------------------------------------------------------------------------
-    # Step 14/23: Root password (allow empty → disable root)
+    # Step 16/25: Root password (allow empty → disable root)
     # --------------------------------------------------------------------------
-    tui_step 14 "${TOTAL_STEPS}" "Root Password"
+    tui_step 16 "${TOTAL_STEPS}" "Root Password"
 
     tui_message "Root Password" \
         "Leave empty to disable root login (recommended).\nIf set, must be entered twice."
@@ -359,9 +381,9 @@ main() {
     unset pw
 
     # --------------------------------------------------------------------------
-    # Step 15/23: User password (required)
+    # Step 17/25: User password (required)
     # --------------------------------------------------------------------------
-    tui_step 15 "${TOTAL_STEPS}" "User Password"
+    tui_step 17 "${TOTAL_STEPS}" "User Password"
 
     local user_pw
     while true; do
@@ -376,10 +398,10 @@ main() {
     unset user_pw user_hash
 
     # --------------------------------------------------------------------------
-    # Step 16/23: LUKS passphrase (modes B + C)
+    # Step 18/25: LUKS passphrase (modes B + C)
     # --------------------------------------------------------------------------
     if [[ "${INSTALL_MODE}" == "B" || "${INSTALL_MODE}" == "C" ]]; then
-        tui_step 16 "${TOTAL_STEPS}" "LUKS Passphrase"
+        tui_step 18 "${TOTAL_STEPS}" "LUKS Passphrase"
         tui_message "LUKS Passphrase" \
             "This passphrase is the disk encryption recovery method.\nStore it safely — losing it means losing all data on the disk."
         local luks_pp
@@ -394,10 +416,10 @@ main() {
     fi
 
     # --------------------------------------------------------------------------
-    # Step 17/23: TPM2 PIN (mode C only)
+    # Step 19/25: TPM2 PIN (mode C only)
     # --------------------------------------------------------------------------
     if [[ "${INSTALL_MODE}" == "C" ]]; then
-        tui_step 17 "${TOTAL_STEPS}" "TPM2 PIN"
+        tui_step 19 "${TOTAL_STEPS}" "TPM2 PIN"
         tui_message "TPM2 PIN" \
             "The TPM2 chip will be wiped and re-enrolled.\nA PIN is required on every boot (the LUKS passphrase remains as recovery)."
         local tpm_pin
@@ -412,9 +434,9 @@ main() {
     fi
 
     # --------------------------------------------------------------------------
-    # Step 18/23: Dotfiles (default on)
+    # Step 20/25: Dotfiles (default on)
     # --------------------------------------------------------------------------
-    tui_step 18 "${TOTAL_STEPS}" "Dotfiles"
+    tui_step 20 "${TOTAL_STEPS}" "Dotfiles"
 
     if tui_confirm "Dotfiles" "Set up dotfiles automatically? (gh auth login will run now — default: yes)" "yes"; then
         cfg_set DOTFILES_ENABLED 1
@@ -439,9 +461,9 @@ main() {
     fi
 
     # --------------------------------------------------------------------------
-    # Step 19/23: Secure Boot (default off)
+    # Step 21/25: Secure Boot (default off)
     # --------------------------------------------------------------------------
-    tui_step 19 "${TOTAL_STEPS}" "Secure Boot"
+    tui_step 21 "${TOTAL_STEPS}" "Secure Boot"
 
     local sbctl_st
     sbctl_st=$(sbctl status 2>&1 || true)
@@ -453,9 +475,9 @@ main() {
     fi
 
     # --------------------------------------------------------------------------
-    # Step 20/23: Kernel lockdown (default on)
+    # Step 22/25: Kernel lockdown (default on)
     # --------------------------------------------------------------------------
-    tui_step 20 "${TOTAL_STEPS}" "Kernel Lockdown"
+    tui_step 22 "${TOTAL_STEPS}" "Kernel Lockdown"
 
     if tui_confirm "Kernel Lockdown" "Enable kernel lockdown? (iommu=force, lockdown=confidentiality — default: yes)" "yes"; then
         cfg_set KERNEL_LOCKDOWN 1
@@ -464,9 +486,9 @@ main() {
     fi
 
     # --------------------------------------------------------------------------
-    # Step 21/23: Additional optional scripts
+    # Step 23/25: Additional optional scripts
     # --------------------------------------------------------------------------
-    tui_step 21 "${TOTAL_STEPS}" "Optional Scripts"
+    tui_step 23 "${TOTAL_STEPS}" "Optional Scripts"
 
     local optional_dir
     optional_dir="$(dirname -- "${BASH_SOURCE[0]}")/../optional"
@@ -504,9 +526,9 @@ main() {
     fi
 
     # --------------------------------------------------------------------------
-    # Step 22/23: Summary recap
+    # Step 24/25: Summary recap
     # --------------------------------------------------------------------------
-    tui_step 22 "${TOTAL_STEPS}" "Summary"
+    tui_step 24 "${TOTAL_STEPS}" "Summary"
 
     # Reload all persisted values into the current shell
     cfg_load
@@ -546,9 +568,9 @@ main() {
     fi
 
     # --------------------------------------------------------------------------
-    # Step 23/23: Final destructive confirmation (skip for mode D)
+    # Step 25/25: Final destructive confirmation (skip for mode D)
     # --------------------------------------------------------------------------
-    tui_step 23 "${TOTAL_STEPS}" "Final Confirmation"
+    tui_step 25 "${TOTAL_STEPS}" "Final Confirmation"
 
     if [[ "${INSTALL_MODE}" != "D" ]]; then
         local disk_info

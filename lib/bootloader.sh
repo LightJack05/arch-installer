@@ -13,9 +13,9 @@
 # Functions:
 #   boot_write_mkinitcpio_conf
 #   boot_write_preset
-#   boot_build_cmdline_scheme_a <root_uuid>        — echo cmdline
-#   boot_build_cmdline_scheme_b <cryptroot_uuid>
-#   boot_build_cmdline_scheme_c <cryptroot_uuid>
+#   boot_build_cmdline_plain <root_uuid>           — echo cmdline (mode A)
+#   boot_build_cmdline_luks <cryptroot_uuid>       — mode B (passphrase only)
+#   boot_build_cmdline_luks_tpm2 <cryptroot_uuid>  — modes C+D (TPM2 auto-unseal)
 #   boot_write_cmdline <cmdline>
 #   boot_rebuild_uki                               — mkinitcpio -P
 
@@ -47,18 +47,18 @@ EOF
 
 _SECURITY_PARAMS='iommu=force intel_iommu=on amd_iommu=on lockdown=confidentiality'
 
-boot_build_cmdline_scheme_a() {
+boot_build_cmdline_plain() {
     local root_uuid="$1"
     printf 'root=UUID=%s rw %s\n' "${root_uuid}" "${_SECURITY_PARAMS}"
 }
 
-boot_build_cmdline_scheme_b() {
+boot_build_cmdline_luks() {
     local luks_uuid="$1"
     printf 'rd.luks.name=%s=cryptroot root=/dev/mapper/cryptroot rw %s\n' \
         "${luks_uuid}" "${_SECURITY_PARAMS}"
 }
 
-boot_build_cmdline_scheme_c() {
+boot_build_cmdline_luks_tpm2() {
     local luks_uuid="$1"
     printf 'rd.luks.name=%s=cryptroot rd.luks.options=%s=tpm2-device=auto root=/dev/mapper/cryptroot rw %s\n' \
         "${luks_uuid}" "${luks_uuid}" "${_SECURITY_PARAMS}"

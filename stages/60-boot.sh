@@ -12,7 +12,7 @@
 #   - build UKI via boot_rebuild_uki
 #   - sb_sign_all  (sign after build so the signed files are current)
 #
-# For scheme C (TPM2+PIN):
+# For scheme C (TPM2, no PIN) and D (TPM2+PIN):
 #   - stage 20 enrolled TPM2 with PCR 0 only so the first boot works regardless
 #     of Secure Boot state changes during installation.
 #   - This stage queues a post-reboot task (via lib/post-reboot.sh) that
@@ -20,11 +20,7 @@
 #     with its final Secure Boot state.  Credentials are stored root-only on
 #     the encrypted partition and shredded immediately after re-enrollment.
 #
-# For scheme E (TPM2, no PIN):
-#   - identical cmdline to C (rd.luks.options=tpm2-device=auto).
-#   - queues a post-reboot re-enrollment with PCR 0+7, no PIN.
-#
-# For scheme D: derive UUIDs from the mounted filesystems via findmnt + blkid.
+# For scheme Z: derive UUIDs from the mounted filesystems via findmnt + blkid.
 
 set -Eeuo pipefail
 # shellcheck source=../lib/common.sh
@@ -54,21 +50,21 @@ main() {
         A)
             local root_uuid
             root_uuid=$(blkid -s UUID -o value "$(findmnt -no SOURCE /)")
-            cmdline=$(boot_build_cmdline_scheme_a "${root_uuid}")
+            cmdline=$(boot_build_cmdline_plain "${root_uuid}")
             ;;
         B)
             cfg_require LUKS_UUID
-            cmdline=$(boot_build_cmdline_scheme_b "${LUKS_UUID}")
+            cmdline=$(boot_build_cmdline_luks "${LUKS_UUID}")
             ;;
         C)
             cfg_require LUKS_UUID
-            cmdline=$(boot_build_cmdline_scheme_c "${LUKS_UUID}")
-            ;;
-        E)
-            cfg_require LUKS_UUID
-            cmdline=$(boot_build_cmdline_scheme_c "${LUKS_UUID}")
+            cmdline=$(boot_build_cmdline_luks_tpm2 "${LUKS_UUID}")
             ;;
         D)
+            cfg_require LUKS_UUID
+            cmdline=$(boot_build_cmdline_luks_tpm2 "${LUKS_UUID}")
+            ;;
+        Z)
             # Detect whether root device is a LUKS mapper or a plain partition.
             local root_source
             root_source=$(findmnt -no SOURCE /)
@@ -86,15 +82,15 @@ main() {
                 # Determine whether TPM2 options are in use by checking enrolled keyslots.
                 if systemd-cryptenroll --list-devices 2>/dev/null | grep -q "${backing_dev}" \
                     && cryptsetup luksDump "${backing_dev}" 2>/dev/null | grep -q 'tpm2'; then
-                    cmdline=$(boot_build_cmdline_scheme_c "${luks_uuid}")
+                    cmdline=$(boot_build_cmdline_luks_tpm2 "${luks_uuid}")
                 else
-                    cmdline=$(boot_build_cmdline_scheme_b "${luks_uuid}")
+                    cmdline=$(boot_build_cmdline_luks "${luks_uuid}")
                 fi
             else
                 # Plain (unencrypted) root.
                 local root_uuid
                 root_uuid=$(blkid -s UUID -o value "${root_source}")
-                cmdline=$(boot_build_cmdline_scheme_a "${root_uuid}")
+                cmdline=$(boot_build_cmdline_plain "${root_uuid}")
             fi
             ;;
         *)
@@ -131,10 +127,10 @@ main() {
         boot_rebuild_uki
     fi
 
-    # Scheme C: queue a first-boot re-enrollment of TPM2 with PCR 0+7.
+    # Scheme D: queue a first-boot re-enrollment of TPM2 with PCR 0+7 + PIN.
     # Stage 20 used PCR 0 only because PCR 7 (Secure Boot state) is a boot-time
     # measurement — it cannot reflect key changes made during this session.
-    if [[ "${INSTALL_MODE}" == "C" ]]; then
+    if [[ "${INSTALL_MODE}" == "D" ]]; then
         cfg_require LUKS_UUID LUKS_PASSPHRASE TPM_PIN
 
         post_reboot_ensure_framework
@@ -177,8 +173,8 @@ _ENROLL_EOF_
         log_info "TPM2 re-enrollment queued for first boot (will bind PCR 0+7)"
     fi
 
-    # Scheme E: queue a first-boot re-enrollment of TPM2 with PCR 0+7 (no PIN).
-    if [[ "${INSTALL_MODE}" == "E" ]]; then
+    # Scheme C: queue a first-boot re-enrollment of TPM2 with PCR 0+7 (no PIN).
+    if [[ "${INSTALL_MODE}" == "C" ]]; then
         cfg_require LUKS_UUID LUKS_PASSPHRASE
 
         post_reboot_ensure_framework

@@ -5,29 +5,30 @@
 # Screens (see PLAN.md §4 TUI answer set for defaults):
 #   1.  splash
 #   2.  live keyboard layout (applied immediately via `loadkeys`)
-#   3.  install mode A/B/C/D
-#   4.  manual mount dir (D only)
-#   5.  target disk (A/B/C)
-#   6.  filesystem ext4|btrfs (A/B/C)
-#   7.  hostname
-#   8.  timezone
-#   9.  locale
-#  10.  console keymap
-#  11.  username
-#  12.  user full name (optional)
-#  13.  user shell
-#  14.  root password (twice, empty allowed → root login disabled)
-#  15.  user password (twice, required)
-#  16.  LUKS passphrase (twice)                  — B+C+E
-#  17.  TPM2 PIN (twice) + TPM-wipe confirmation — C only
-#  18.  dotfiles opt-out (default on)
-#        └─ if on: run `gh auth login`, capture token → /tmp/installer.ghtoken (0600)
+#   3.  install mode A/B/C/D/Z
+#   4.  manual mount dir (Z only)
+#   5.  target disk (A/B/C/D)
+#   6.  filesystem ext4|btrfs (A/B/C/D)
 #   7.  zRAM size (MiB, default: min(RAM/2, 16 GiB))
 #   8.  swapfile size (MiB, default: physical RAM size)
-#  19.  secure boot opt-in (warn if not in Setup Mode)
-#  20.  additional optional scripts (checklist from optional/)
-#  21.  summary recap (go back to any screen)
-#  22.  final destructive confirmation (only before scheme A/B/C wipes)
+#   9.  hostname
+#  10.  timezone
+#  11.  locale
+#  12.  console keymap
+#  13.  username
+#  14.  user full name (optional)
+#  15.  user shell
+#  16.  root password (twice, empty allowed → root login disabled)
+#  17.  user password (twice, required)
+#  18.  LUKS passphrase (twice)                  — B+C+D
+#  19.  TPM2 PIN (twice) + TPM-wipe confirmation — D only
+#  20.  dotfiles opt-out (default on)
+#        └─ if on: run `gh auth login`, capture token → /tmp/installer.ghtoken (0600)
+#  21.  secure boot opt-in (warn if not in Setup Mode)
+#  22.  kernel lockdown opt-out (default on)
+#  23.  additional optional scripts (checklist from optional/)
+#  24.  summary recap
+#  25.  final destructive confirmation (only before scheme A/B/C/D wipes)
 #
 # Swapfile and zRAM defaults are auto-computed from RAM by compute_swap_defaults;
 # the user is prompted to confirm or override both values.
@@ -156,19 +157,19 @@ main() {
 
     tui_choose "Install Mode" "Partitioning scheme" \
         "A - Bare (ESP + root)" \
-        "B - LUKS passphrase" \
-        "C - LUKS + TPM2-PIN" \
-        "D - Manual (already mounted)" \
-        "E - LUKS + TPM2 (no PIN)"
+        "B - LUKS + passphrase" \
+        "C - LUKS + TPM2 (no PIN)" \
+        "D - LUKS + TPM2 + PIN" \
+        "Z - Custom (already mounted)"
     ans="${_TUI_RESULT}"
     local INSTALL_MODE="${ans:0:1}"
     cfg_set INSTALL_MODE "${INSTALL_MODE}"
 
     # --------------------------------------------------------------------------
-    # Step 4/25: Manual mount dir (mode D only)
+    # Step 4/25: Manual mount dir (mode Z only)
     # --------------------------------------------------------------------------
     local MANUAL_MOUNT="/mnt"
-    if [[ "${INSTALL_MODE}" == "D" ]]; then
+    if [[ "${INSTALL_MODE}" == "Z" ]]; then
         tui_step 4 "${TOTAL_STEPS}" "Manual Mount Directory"
         while true; do
             tui_input "Manual Mode" "Mount root directory" "/mnt"
@@ -186,10 +187,10 @@ main() {
     fi
 
     # --------------------------------------------------------------------------
-    # Step 5/25: Target disk (modes A/B/C)
+    # Step 5/25: Target disk (modes A/B/C/D)
     # --------------------------------------------------------------------------
     local TARGET_DISK=""
-    if [[ "${INSTALL_MODE}" != "D" ]]; then
+    if [[ "${INSTALL_MODE}" != "Z" ]]; then
         tui_step 5 "${TOTAL_STEPS}" "Target Disk"
 
         # Build disk list from lsblk: show non-removable first
@@ -237,9 +238,9 @@ main() {
     fi
 
     # --------------------------------------------------------------------------
-    # Step 6/25: Filesystem (modes A/B/C)
+    # Step 6/25: Filesystem (modes A/B/C/D)
     # --------------------------------------------------------------------------
-    if [[ "${INSTALL_MODE}" != "D" ]]; then
+    if [[ "${INSTALL_MODE}" != "Z" ]]; then
         tui_step 6 "${TOTAL_STEPS}" "Filesystem"
         tui_choose "Filesystem" "Root filesystem" "ext4" "btrfs"
         ans="${_TUI_RESULT}"
@@ -399,9 +400,9 @@ main() {
     unset user_pw user_hash
 
     # --------------------------------------------------------------------------
-    # Step 18/25: LUKS passphrase (modes B + C)
+    # Step 18/25: LUKS passphrase (modes B + C + D)
     # --------------------------------------------------------------------------
-    if [[ "${INSTALL_MODE}" == "B" || "${INSTALL_MODE}" == "C" || "${INSTALL_MODE}" == "E" ]]; then
+    if [[ "${INSTALL_MODE}" == "B" || "${INSTALL_MODE}" == "C" || "${INSTALL_MODE}" == "D" ]]; then
         tui_step 18 "${TOTAL_STEPS}" "LUKS Passphrase"
         tui_message "LUKS Passphrase" \
             "This passphrase is the disk encryption recovery method.\nStore it safely — losing it means losing all data on the disk."
@@ -417,9 +418,9 @@ main() {
     fi
 
     # --------------------------------------------------------------------------
-    # Step 19/25: TPM2 PIN (mode C only)
+    # Step 19/25: TPM2 PIN (mode D only)
     # --------------------------------------------------------------------------
-    if [[ "${INSTALL_MODE}" == "C" ]]; then
+    if [[ "${INSTALL_MODE}" == "D" ]]; then
         tui_step 19 "${TOTAL_STEPS}" "TPM2 PIN"
         tui_message "TPM2 PIN" \
             "The TPM2 chip will be wiped and re-enrolled.\nA PIN is required on every boot (the LUKS passphrase remains as recovery)."
@@ -569,11 +570,11 @@ main() {
     fi
 
     # --------------------------------------------------------------------------
-    # Step 25/25: Final destructive confirmation (skip for mode D)
+    # Step 25/25: Final destructive confirmation (skip for mode Z)
     # --------------------------------------------------------------------------
     tui_step 25 "${TOTAL_STEPS}" "Final Confirmation"
 
-    if [[ "${INSTALL_MODE}" != "D" ]]; then
+    if [[ "${INSTALL_MODE}" != "Z" ]]; then
         local disk_info
         disk_info=$(lsblk -o NAME,SIZE,MODEL "${TARGET_DISK}" 2>&1 || true)
         tui_message "WARNING — POINT OF NO RETURN" \

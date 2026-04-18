@@ -18,7 +18,7 @@ main() {
     cfg_require INSTALL_MODE
 
     local target="/mnt"
-    [[ "${INSTALL_MODE}" == "D" ]] && target="${MANUAL_MOUNT}"
+    [[ "${INSTALL_MODE}" == "Z" ]] && target="${MANUAL_MOUNT}"
 
     # 1. Copy the installer repo into the new system
     local dest="${target}/root/arch-installer"

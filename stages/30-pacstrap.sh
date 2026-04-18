@@ -11,9 +11,9 @@
 #   zram-generator
 #   ${ucode}   (amd-ucode | intel-ucode — detected from /proc/cpuinfo)
 #   btrfs-progs   (if FILESYSTEM=btrfs)
-#   tpm2-tools tpm2-tss   (if INSTALL_MODE=C)
+#   tpm2-tools tpm2-tss   (if INSTALL_MODE=C or D)
 #
-# Skipped in full for scheme D — user is expected to have pacstrapped already.
+# Skipped in full for scheme Z — user is expected to have pacstrapped already.
 # (We still pacman -Sy inside the chroot for anything missing.)
 
 set -Eeuo pipefail
@@ -27,7 +27,7 @@ main() {
     cfg_require INSTALL_MODE FILESYSTEM
 
     local target="/mnt"
-    [[ "${INSTALL_MODE}" == "D" ]] && target="${MANUAL_MOUNT}"
+    [[ "${INSTALL_MODE}" == "Z" ]] && target="${MANUAL_MOUNT}"
 
     # Detect microcode
     local ucode
@@ -47,7 +47,7 @@ main() {
         "$ucode"
     )
     [[ "$FILESYSTEM" == "btrfs" ]] && pkgs+=(btrfs-progs)
-    [[ "${INSTALL_MODE}" == "C" ]] && pkgs+=(tpm2-tools tpm2-tss)
+    [[ "${INSTALL_MODE}" == "C" || "${INSTALL_MODE}" == "D" ]] && pkgs+=(tpm2-tools tpm2-tss)
 
     log_info "pacstrapping into ${target} with packages: ${pkgs[*]}"
     run pacstrap -K "$target" "${pkgs[@]}"

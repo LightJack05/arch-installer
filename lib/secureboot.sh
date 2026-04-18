@@ -4,7 +4,7 @@
 # Prerequisite: firmware in Setup Mode. Caller (optional/secure-boot.sh) surfaces
 # `sbctl status` before invoking this to let the user verify.
 #
-# Ordering note: if scheme C (TPM2+PIN) is also selected, enroll SB keys and
+# Ordering note: if scheme D (TPM2+PIN) is also selected, enroll SB keys and
 # rebuild+sign the UKI BEFORE doing the TPM enrollment, so PCR 7 is stable.
 #
 # Functions:

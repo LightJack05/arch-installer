@@ -21,14 +21,14 @@ main() {
     cfg_require SWAPFILE_SIZE_MIB
 
     local target="/mnt"
-    [[ "${INSTALL_MODE:-}" == "D" ]] && target="${MANUAL_MOUNT}"
+    [[ "${INSTALL_MODE:-}" == "Z" ]] && target="${MANUAL_MOUNT}"
 
-    # For mode D the user pre-mounted their own partitions; FILESYSTEM is never
+    # For mode Z the user pre-mounted their own partitions; FILESYSTEM is never
     # written to installer.env by stage 20 (which is skipped).  Detect it from
-    # the live mount instead.  For modes A/B/C it is already in the environment
+    # the live mount instead.  For modes A/B/C/D it is already in the environment
     # courtesy of cfg_load above.
     local filesystem="${FILESYSTEM:-}"
-    if [[ "${INSTALL_MODE:-}" == "D" ]]; then
+    if [[ "${INSTALL_MODE:-}" == "Z" ]]; then
         filesystem="$(findmnt -no FSTYPE "${target}" 2>/dev/null || true)"
         if [[ -z "${filesystem}" ]]; then
             log_info "could not detect filesystem type at ${target}; assuming ext4"
@@ -36,7 +36,7 @@ main() {
         fi
     fi
     if [[ -z "${filesystem}" ]]; then
-        die "FILESYSTEM is unset and INSTALL_MODE is not D — check installer.env"
+        die "FILESYSTEM is unset and INSTALL_MODE is not Z — check installer.env"
     fi
 
     local swapfile="${target}${SWAPFILE_RELPATH}"

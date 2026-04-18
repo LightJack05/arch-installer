@@ -50,7 +50,7 @@ arch-installer/
 ├── lib/
 │   ├── common.sh                  # logging, error trap, confirm(), run(), die()
 │   ├── iso-bootstrap.sh           # installs extra UI/tooling deps into ISO ramdisk
-│   ├── tui.sh                     # TUI wrappers (gum primary, whiptail fallback)
+│   ├── tui.sh                     # TUI wrappers (gum)
 │   ├── config.sh                  # load/save answers as KEY=value to /tmp/installer.env
 │   ├── disk.sh                    # detect disks, wipe, partition (sgdisk)
 │   ├── encryption.sh              # LUKS2 format; TPM wipe + systemd-cryptenroll (PIN)
@@ -102,10 +102,8 @@ arch-installer/
 ## 4. Key Technical Decisions
 
 ### TUI tool
-- **Primary: `gum`** (charmbracelet) — modern look, small (~7 MB), pacman-installed into the ISO at the start of `install.sh`.
-- **Fallback: `whiptail`** (from `libnewt`) — present on the Arch ISO by default; used if `gum` install fails or `INSTALLER_TUI=whiptail` is set.
+- **`gum`** (charmbracelet) — modern look, small (~7 MB), pacman-installed into the ISO ramdisk by `iso-bootstrap` before the TUI starts. Fatal if install fails.
 - Small ASCII splash via `figlet` + `lolcat` on entry (cosmetic only; TUI doesn't depend on them).
-- **ISO ramdisk budget:** keep extra installs under ~100 MB; `00-precheck` sanity-checks free RAM before pulling extras.
 
 ### TUI return-value convention
 All value-returning TUI functions (`tui_input`, `tui_password`, `tui_choose`, `tui_checklist`, `tui_input_validated`) store their result in the global `_TUI_RESULT` variable instead of printing to stdout. Callers **must not** wrap these in `$(...)` — instead call the function then read `_TUI_RESULT`:
@@ -113,7 +111,7 @@ All value-returning TUI functions (`tui_input`, `tui_password`, `tui_choose`, `t
 tui_input "Title" "Prompt" "default"
 my_var="${_TUI_RESULT}"
 ```
-Reason: `$()` creates a subshell; whiptail's `3>&1 1>&2 2>&3` fd swap and gum's interactive prompts break in nested subshell contexts. `tui_confirm` is exempt — it returns only an exit code (0=yes, 1=no).
+Reason: `$()` creates a subshell; gum's interactive prompts break in nested subshell contexts. `tui_confirm` is exempt — it returns only an exit code (0=yes, 1=no).
 
 ### TUI answer set (all prompted, defaults pre-filled — "hit next" to accept)
 | Prompt | Default | Notes |
@@ -267,13 +265,13 @@ p2 LUKS2 "cryptroot"    rest
 | Agent | Purpose |
 |---|---|
 | `arch-installer-expert` | Deep Arch install knowledge — LUKS2, `systemd-cryptenroll` (incl. TPM2+PIN and wipe), UKI / mkinitcpio presets, sbctl, pacstrap, chroot flow. Writes robust bash. |
-| `tui-ux-designer` | Designs gum + whiptail screens, option layouts, input validation, defaults/"hit next" UX. |
+| `tui-ux-designer` | Designs gum screens, option layouts, input validation, defaults/"hit next" UX. |
 | `bash-reviewer` | Reviews bash for safety (quoting, pipefail, traps), idempotency, portability, shellcheck hygiene. |
 
 ## 8. Implementation Phases
 
 1. **Phase 0 — Workspace prep** *(this commit)*: PLAN.md, agents, memory.
-2. **Phase 1 — Scaffold** `lib/` + `install.sh` + ISO bootstrap + TUI (gum primary, whiptail fallback, defaults wired in).
+2. **Phase 1 — Scaffold** `lib/` + `install.sh` + ISO bootstrap + TUI (gum, defaults wired in).
 3. **Phase 2 — Disk + FS + swap stages** for schemes A / B / C / D × ext4 / btrfs; VM-test each combo. Includes zram-generator config + swapfile + `resume_offset` calc.
 4. **Phase 3 — Pacstrap + chroot glue**, rewrite system-config stage.
 5. **Phase 4 — Boot stage** (mkinitcpio preset, UKI, cmdline builder w/ `resume=` + `resume_offset=`, optional sbctl).

@@ -129,7 +129,7 @@ main() {
     compute_swap_defaults
     cfg_set SWAPFILE_SIZE_MIB "${SWAPFILE_SIZE_MIB}"
     cfg_set ZRAM_SIZE_MIB "${ZRAM_SIZE_MIB}"
-    log_info "starting TUI (backend: ${INSTALLER_TUI_BACKEND})"
+    log_info "starting TUI"
 
     # --------------------------------------------------------------------------
     # Step 1/23: Splash

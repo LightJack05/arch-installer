@@ -46,13 +46,9 @@ main() {
         log_info "pacman keyring already populated"
     fi
 
-    # 5. RAM budget (for iso-bootstrap)
+    # 5. RAM budget (informational)
     local avail_mib
     avail_mib=$(awk '/MemAvailable/ {printf "%d", $2/1024}' /proc/meminfo)
-    if (( avail_mib < 512 )); then
-        log_warn "only ${avail_mib} MiB RAM available — skipping extra ISO tooling"
-        export INSTALLER_SKIP_ISO_EXTRAS=1
-    fi
     log_info "available RAM: ${avail_mib} MiB"
 
     # 6. Log init

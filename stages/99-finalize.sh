@@ -19,8 +19,8 @@ main() {
     cfg_shred
 
     # 3. Clean up build artifacts
-    cfg_load || true
-    local build_dir="/home/${USERNAME:-LightJack05}/.cache/installer-build"
+    cfg_require USERNAME
+    local build_dir="/home/${USERNAME}/.cache/installer-build"
     rm -rf "$build_dir" 2>/dev/null || true
 
     # 4. Optional victory banner

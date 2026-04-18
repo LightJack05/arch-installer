@@ -5,7 +5,7 @@
 # Flow:
 #   00-precheck → iso-bootstrap-all → 10-tui → 20-disk → 25-swap → 30-pacstrap
 #   → 40-chroot → (inside chroot) 50-system → 60-boot → 70-users → 80-packages
-#   → 85-aur → 90-services → 95-dotfiles → 99-finalize
+#   → 85-aur → 88-optional → 90-services → 95-dotfiles → 99-finalize
 #
 # Stages numbered <40 run on the live ISO.
 # Stage 40 arch-chroots into /mnt, which re-invokes this script with
@@ -42,6 +42,7 @@ readonly CHROOT_STAGES=(
     "70-users"
     "80-packages"
     "85-aur"
+    "88-optional"
     "90-services"
     "95-dotfiles"
     "99-finalize"

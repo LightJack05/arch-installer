@@ -63,7 +63,7 @@ fs_mkfs_root_btrfs() {
 fs_create_btrfs_subvols() {
     local dev="$1"
     local tmp
-    tmp=$(mktemp -d)
+    tmp=$(mktemp -d) || die "mktemp -d failed"
     run mount "${dev}" "${tmp}"
     run btrfs subvolume create "${tmp}/@"
     run btrfs subvolume create "${tmp}/@home"

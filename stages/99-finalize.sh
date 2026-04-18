@@ -25,15 +25,10 @@ main() {
 
     # 4. Optional victory banner
     if command -v figlet >/dev/null 2>&1 && command -v lolcat >/dev/null 2>&1; then
-        figlet -f slant "Done!" | lolcat || true
+        figlet -f slant "Install Completed! Reboot at your convenience." | lolcat || true
+        figlet -f slant "Have a nice day. :)" | lolcat || true
     fi
 
-    # 5. Final message
-    log_info "═══════════════════════════════════════"
-    log_info "Installation complete!"
-    log_info "Log saved to: /var/log/installer.log"
-    log_info "Reboot when ready: systemctl reboot"
-    log_info "═══════════════════════════════════════"
 }
 
 main "$@"

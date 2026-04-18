@@ -2,8 +2,9 @@
 # stage 90-services — enable services listed in config/services.txt.
 #
 # Each line is a unit name (e.g. NetworkManager.service, ly@tty2.service).
-# Missing units are logged as warnings, not errors — a service may depend on
-# an optional package the user excluded.
+# Failures are logged as warnings and skipped — some units (e.g. getty
+# overrides like ly@tty2) have no service file but enable successfully via
+# systemctl's template handling, while others may simply be absent.
 
 set -Eeuo pipefail
 # shellcheck source=../lib/common.sh
@@ -21,11 +22,7 @@ main() {
         unit="${unit//[[:space:]]/}"
         [[ -z "$unit" ]] && continue
 
-        if systemctl list-unit-files "$unit" >/dev/null 2>&1; then
-            run systemctl enable "$unit"
-        else
-            log_warn "unit not found, skipping: $unit"
-        fi
+        systemctl enable "$unit" || log_warn "failed to enable unit: $unit"
     done < "${list}"
 
     log_info "service enablement complete"

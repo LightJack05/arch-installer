@@ -9,7 +9,7 @@
 #   enc_open <dev> <passphrase> [<name>]    — cryptsetup open → /dev/mapper/<name>
 #   enc_close [<name>]                      — cryptsetup close
 #   enc_tpm_wipe <dev>                      — systemd-cryptenroll --wipe-slot=tpm2
-#   enc_tpm_enroll <dev> <pin> [<pcrs>]     — tpm2-device=auto, tpm2-with-pin=yes, pcrs=0+7 by default
+#   enc_tpm_enroll <dev> <passphrase> <pin> [<pcrs>] — tpm2-device=auto, tpm2-with-pin=yes, pcrs=0 by default
 #   enc_tpm_enroll_nopin <dev> <passphrase> [<pcrs>] — tpm2-device=auto, tpm2-with-pin=no, pcrs=0 by default
 #   enc_get_luks_uuid <dev>                 — echo LUKS header UUID
 

@@ -17,9 +17,10 @@ main() {
     cfg_load
     cfg_require USERNAME USER_PASSWORD_HASH
 
-    # Create the user. -c (comment/GECOS) is only passed when USER_FULLNAME is set.
-    useradd -m -G wheel -s "${USER_SHELL:-/usr/bin/zsh}" \
-        ${USER_FULLNAME:+-c "$USER_FULLNAME"} "$USERNAME"
+    # Create the user. -c (GECOS) is only passed when USER_FULLNAME is set.
+    local gecos_args=()
+    [[ -n "${USER_FULLNAME:-}" ]] && gecos_args=(-c "${USER_FULLNAME}")
+    useradd -m -G wheel -s "${USER_SHELL:-/usr/bin/zsh}" "${gecos_args[@]}" "$USERNAME"
 
     # Set hashed user password — never log the hash.
     run_quiet bash -c 'printf "%s:%s\n" "$1" "$2" | chpasswd -e' \

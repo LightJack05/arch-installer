@@ -2,8 +2,10 @@
 # lib/config.sh — answer persistence for /tmp/installer.env.
 #
 # Stage 10 writes every answer via cfg_set; stages ≥20 read via cfg_get.
-# Plaintext passwords never touch this file — they're hashed by stage 10
-# (openssl passwd -6) and only the hash is persisted.
+# User passwords are hashed (openssl passwd -6) before being stored.
+# LUKS_PASSPHRASE and TPM_PIN are stored in plaintext — required by stage 20
+# which feeds them directly to cryptsetup/tpm2 tooling. The env file is mode
+# 0600 and shredded by stage 99.
 #
 # Always sourced; never executed.
 

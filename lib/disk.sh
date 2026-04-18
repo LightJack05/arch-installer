@@ -4,8 +4,9 @@
 # Schemes (see PLAN.md §4):
 #   A: p1 ESP 1G (ef00), p2 root rest (8300)
 #   B: p1 ESP 1G (ef00), p2 LUKS rest (8309)
-#   C: same layout as B
-#   D: no-op (user-provided mounts)
+#   C: same layout as B (TPM2, no PIN)
+#   D: same layout as B (TPM2 + PIN)
+#   Z: no-op (user-provided mounts)
 #
 # Functions:
 #   disk_list                  — lsblk output, non-removable first

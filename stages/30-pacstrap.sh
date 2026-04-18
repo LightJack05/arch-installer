@@ -13,8 +13,8 @@
 #   btrfs-progs   (if FILESYSTEM=btrfs)
 #   tpm2-tools tpm2-tss   (if INSTALL_MODE=C or D)
 #
-# Skipped in full for scheme Z — user is expected to have pacstrapped already.
-# (We still pacman -Sy inside the chroot for anything missing.)
+# For scheme Z (custom mounts) FILESYSTEM is not set by the TUI; the filesystem
+# type is detected from the live mount instead.
 
 set -Eeuo pipefail
 # shellcheck source=../lib/common.sh
@@ -24,10 +24,19 @@ source "$(dirname -- "${BASH_SOURCE[0]}")/../lib/config.sh"
 
 main() {
     cfg_load
-    cfg_require INSTALL_MODE FILESYSTEM
+    cfg_require INSTALL_MODE
 
     local target="/mnt"
     [[ "${INSTALL_MODE}" == "Z" ]] && target="${MANUAL_MOUNT}"
+
+    # FILESYSTEM is set by the TUI for modes A-D. For mode Z the TUI skips the
+    # filesystem prompt, so detect it from the live mount.
+    local filesystem="${FILESYSTEM:-}"
+    if [[ -z "${filesystem}" ]]; then
+        filesystem="$(findmnt -no FSTYPE "${target}" 2>/dev/null || true)"
+        [[ -z "${filesystem}" ]] && filesystem="ext4"
+        log_info "mode Z: detected filesystem '${filesystem}' from ${target}"
+    fi
 
     # Detect microcode
     local ucode
@@ -46,7 +55,7 @@ main() {
         zram-generator
         "$ucode"
     )
-    [[ "$FILESYSTEM" == "btrfs" ]] && pkgs+=(btrfs-progs)
+    [[ "${filesystem}" == "btrfs" ]] && pkgs+=(btrfs-progs)
     [[ "${INSTALL_MODE}" == "C" || "${INSTALL_MODE}" == "D" ]] && pkgs+=(tpm2-tools tpm2-tss)
 
     log_info "pacstrapping into ${target} with packages: ${pkgs[*]}"

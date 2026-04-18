@@ -29,6 +29,7 @@ sb_enroll_keys() {
 
 sb_sign_all() {
     run sbctl sign -s /efi/EFI/BOOT/BOOTX64.EFI
-    [[ -f /efi/EFI/Linux/arch-linux-fallback.efi ]] && \
-        run sbctl sign -s /efi/EFI/Linux/arch-linux-fallback.efi || true
+    if [[ -f /efi/EFI/Linux/arch-linux-fallback.efi ]]; then
+        run sbctl sign -s /efi/EFI/Linux/arch-linux-fallback.efi
+    fi
 }

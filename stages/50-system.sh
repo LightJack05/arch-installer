@@ -58,7 +58,7 @@ main() {
     log_info "pacman.conf options configured (Color, ParallelDownloads, VerbosePkgLists)"
 
     # 8. Refresh pacman database
-    run pacman -Sy
+    run pacman -Sy --noconfirm
     log_info "system configuration complete"
 }
 

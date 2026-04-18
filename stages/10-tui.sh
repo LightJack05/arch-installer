@@ -21,7 +21,7 @@
 #  16.  root password (twice, empty allowed → root login disabled)
 #  17.  user password (twice, required)
 #  18.  LUKS passphrase (twice)                  — B+C+D
-#  19.  TPM2 PIN (twice) + TPM-wipe confirmation — D only
+#  19.  TPM2 PIN (twice)                          — D only
 #  20.  dotfiles opt-out (default on)
 #        └─ if on: run `gh auth login`, capture token → /tmp/installer.ghtoken (0600)
 #  21.  secure boot opt-in (warn if not in Setup Mode)

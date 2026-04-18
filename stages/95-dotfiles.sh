@@ -32,14 +32,12 @@ main() {
     clone_dir="$(basename "${DOTFILES_REPO}" .git)"
 
     if [[ -s "$token_file" ]]; then
-        local token
-        token=$(cat "$token_file")
-
-        # Auth gh as the user
+        # Auth gh as the user. Feed the token file directly to avoid it appearing
+        # on any process command line.
         run sudo -u "$USERNAME" bash -c "
             set -Eeuo pipefail
             mkdir -p ~/.config/gh
-            printf '%s' '${token}' | gh auth login --with-token
+            gh auth login --with-token < /root/.installer-ghtoken
             gh auth setup-git
         "
         log_info "gh authenticated for ${USERNAME}"

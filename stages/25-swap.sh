@@ -18,7 +18,7 @@ source "$(dirname -- "${BASH_SOURCE[0]}")/../lib/swap.sh"
 
 main() {
     cfg_load
-    cfg_require SWAPFILE_SIZE_MIB
+    cfg_require SWAPFILE_SIZE_MIB ZRAM_SIZE_MIB
 
     local target="/mnt"
     [[ "${INSTALL_MODE:-}" == "Z" ]] && target="${MANUAL_MOUNT}"

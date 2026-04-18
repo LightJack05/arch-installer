@@ -1,5 +1,4 @@
 downgrade
 qt6ct-kde
-vmware-workstation
 wofi-emoji
 xwaylandvideobridge

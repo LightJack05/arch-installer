@@ -11,6 +11,4 @@ ly@tty2.service
 power-profiles-daemon.service
 systemd-timesyncd.service
 ufw.service
-vmware-networks.service
-vmware-usbarbitrator.service
 nix-daemon.service

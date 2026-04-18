@@ -15,12 +15,13 @@ main() {
     rm -f /etc/sudoers.d/00-installer
     log_info "removed NOPASSWD sudoers dropin"
 
-    # 2. Shred secrets
+    # 2. Capture values needed after shred, then shred secrets
+    cfg_require USERNAME
+    local username="${USERNAME}"
     cfg_shred
 
     # 3. Clean up build artifacts
-    cfg_require USERNAME
-    local build_dir="/home/${USERNAME}/.cache/installer-build"
+    local build_dir="/home/${username}/.cache/installer-build"
     rm -rf "$build_dir" 2>/dev/null || true
 
     # 4. Optional victory banner

@@ -47,7 +47,7 @@ source "$(dirname -- "${BASH_SOURCE[0]}")/../lib/tui.sh"
 # shellcheck source=../config/defaults.env
 source "$(dirname -- "${BASH_SOURCE[0]}")/../config/defaults.env"
 
-readonly TOTAL_STEPS=22
+readonly TOTAL_STEPS=23
 
 # ==============================================================================
 # Helper: compute_swap_defaults
@@ -416,7 +416,7 @@ main() {
     # --------------------------------------------------------------------------
     tui_step 18 "${TOTAL_STEPS}" "Dotfiles"
 
-    if tui_confirm "Dotfiles" "Set up dotfiles automatically? (gh auth login will run now — default: yes)"; then
+    if tui_confirm "Dotfiles" "Set up dotfiles automatically? (gh auth login will run now — default: yes)" "yes"; then
         cfg_set DOTFILES_ENABLED 1
         log_info "running gh auth login..."
         if ! gh auth login </dev/tty >/dev/tty 2>/dev/tty; then
@@ -444,16 +444,27 @@ main() {
     local sbctl_st
     sbctl_st=$(sbctl status 2>&1 || true)
     tui_message "Secure Boot Status" "${sbctl_st}"
-    if tui_confirm "Secure Boot" "Enable Secure Boot? (requires firmware in Setup Mode — default: no)"; then
+    if tui_confirm "Secure Boot" "Enable Secure Boot? (requires firmware in Setup Mode — default: no)" "no"; then
         cfg_set SECURE_BOOT 1
     else
         cfg_set SECURE_BOOT 0
     fi
 
     # --------------------------------------------------------------------------
-    # Step 20/22: Additional optional scripts
+    # Step 20/23: Kernel lockdown (default on)
     # --------------------------------------------------------------------------
-    tui_step 20 "${TOTAL_STEPS}" "Optional Scripts"
+    tui_step 20 "${TOTAL_STEPS}" "Kernel Lockdown"
+
+    if tui_confirm "Kernel Lockdown" "Enable kernel lockdown? (iommu=force, lockdown=confidentiality — default: yes)" "yes"; then
+        cfg_set KERNEL_LOCKDOWN 1
+    else
+        cfg_set KERNEL_LOCKDOWN 0
+    fi
+
+    # --------------------------------------------------------------------------
+    # Step 21/23: Additional optional scripts
+    # --------------------------------------------------------------------------
+    tui_step 21 "${TOTAL_STEPS}" "Optional Scripts"
 
     local optional_dir
     optional_dir="$(dirname -- "${BASH_SOURCE[0]}")/../optional"
@@ -491,9 +502,9 @@ main() {
     fi
 
     # --------------------------------------------------------------------------
-    # Step 21/22: Summary recap
+    # Step 22/23: Summary recap
     # --------------------------------------------------------------------------
-    tui_step 21 "${TOTAL_STEPS}" "Summary"
+    tui_step 22 "${TOTAL_STEPS}" "Summary"
 
     # Reload all persisted values into the current shell
     cfg_load
@@ -533,9 +544,9 @@ main() {
     fi
 
     # --------------------------------------------------------------------------
-    # Step 22/22: Final destructive confirmation (skip for mode D)
+    # Step 23/23: Final destructive confirmation (skip for mode D)
     # --------------------------------------------------------------------------
-    tui_step 22 "${TOTAL_STEPS}" "Final Confirmation"
+    tui_step 23 "${TOTAL_STEPS}" "Final Confirmation"
 
     if [[ "${INSTALL_MODE}" != "D" ]]; then
         local disk_info

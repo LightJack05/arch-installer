@@ -4,7 +4,7 @@
 # Always:
 #   - write HOOKS=(systemd autodetect modconf keyboard sd-vconsole block sd-encrypt filesystems fsck)
 #   - write /etc/mkinitcpio.d/linux.preset for UKI output
-#   - build cmdline with security params (iommu, lockdown)
+#   - build cmdline (+ security params if KERNEL_LOCKDOWN=1, default on)
 #   - mkinitcpio -P  →  /efi/EFI/BOOT/BOOTX64.EFI
 #
 # If SECURE_BOOT=1:
@@ -35,6 +35,12 @@ source "$(dirname -- "${BASH_SOURCE[0]}")/../lib/post-reboot.sh"
 main() {
     cfg_load
     cfg_require INSTALL_MODE
+
+    # Clear security params if the user opted out of kernel lockdown.
+    if [[ "${KERNEL_LOCKDOWN:-1}" != "1" ]]; then
+        _SECURITY_PARAMS=''
+        log_info "kernel lockdown disabled — security params omitted from cmdline"
+    fi
 
     boot_write_mkinitcpio_conf
     boot_write_preset

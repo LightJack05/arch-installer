@@ -251,30 +251,51 @@ tui_checklist() {
 }
 
 # ==============================================================================
-# tui_confirm <title> <prompt>
+# tui_confirm <title> <prompt> [default]
 # Yes/No. Return 0 for yes, 1 for no.
+# Optional third argument sets the default: "yes" (default) or "no".
 # ==============================================================================
 tui_confirm() {
     local title="$1"
     local prompt="$2"
+    local default="${3:-yes}"
 
     case "${INSTALLER_TUI_BACKEND}" in
         gum)
-            gum confirm "${prompt}"
+            if [[ "${default}" == "no" ]]; then
+                gum confirm --default=false "${prompt}"
+            else
+                gum confirm "${prompt}"
+            fi
             ;;
         whiptail)
-            whiptail --title "${title}" --yesno "${prompt}" 10 60
+            if [[ "${default}" == "no" ]]; then
+                whiptail --title "${title}" --defaultno --yesno "${prompt}" 10 60
+            else
+                whiptail --title "${title}" --yesno "${prompt}" 10 60
+            fi
             ;;
         read|*)
             local ans
-            while true; do
-                read -rp "${prompt} [y/N]: " ans </dev/tty
-                case "${ans,,}" in
-                    y|yes) return 0 ;;
-                    n|no|"") return 1 ;;
-                    *) printf 'Please answer y or n.\n' >&2 ;;
-                esac
-            done
+            if [[ "${default}" == "no" ]]; then
+                while true; do
+                    read -rp "${prompt} [y/N]: " ans </dev/tty
+                    case "${ans,,}" in
+                        y|yes) return 0 ;;
+                        n|no|"") return 1 ;;
+                        *) printf 'Please answer y or n.\n' >&2 ;;
+                    esac
+                done
+            else
+                while true; do
+                    read -rp "${prompt} [Y/n]: " ans </dev/tty
+                    case "${ans,,}" in
+                        y|yes|"") return 0 ;;
+                        n|no) return 1 ;;
+                        *) printf 'Please answer y or n.\n' >&2 ;;
+                    esac
+                done
+            fi
             ;;
     esac
 }

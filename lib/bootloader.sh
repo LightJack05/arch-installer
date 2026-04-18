@@ -6,7 +6,7 @@
 # Hook line: systemd autodetect modconf keyboard sd-vconsole block sd-encrypt filesystems fsck
 # UKI outputs: /efi/EFI/BOOT/BOOTX64.EFI (default), /efi/EFI/Linux/arch-linux-fallback.efi
 #
-# Security parameters included in all cmdlines:
+# Security parameters (included when KERNEL_LOCKDOWN=1, which is the default):
 #   iommu=force intel_iommu=on amd_iommu=on  — enforce IOMMU on all devices (DMA protection)
 #   lockdown=confidentiality                  — block kernel memory reads; implies no hibernation
 #

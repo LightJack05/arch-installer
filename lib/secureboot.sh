@@ -24,7 +24,7 @@ sb_create_keys() {
 }
 
 sb_enroll_keys() {
-    run sbctl enroll-keys -m
+    run sbctl enroll-keys
 }
 
 sb_sign_all() {

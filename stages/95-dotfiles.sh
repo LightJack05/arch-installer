@@ -37,9 +37,9 @@ main() {
         run sudo -u "$USERNAME" bash -c "
             set -Eeuo pipefail
             mkdir -p ~/.config/gh
-            gh auth login --with-token < /root/.installer-ghtoken
+            gh auth login --with-token
             gh auth setup-git
-        "
+        " < "$token_file"
         log_info "gh authenticated for ${USERNAME}"
 
         # Clone dotfiles

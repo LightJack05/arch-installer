@@ -279,9 +279,9 @@ main() {
     # --------------------------------------------------------------------------
     tui_step 9 "${TOTAL_STEPS}" "Hostname"
 
-    validate_hostname() { [[ "$1" =~ ^[a-z0-9][a-z0-9-]{0,62}$ ]]; }
+    validate_hostname() { [[ "$1" =~ ^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$ ]]; }
     tui_input_validated "Hostname" \
-        "Hostname (lowercase letters, digits, hyphens; 1-63 chars)" \
+        "Hostname (letters, digits, hyphens; 1-63 chars)" \
         "${HOSTNAME:-archlinux}" \
         validate_hostname
     ans="${_TUI_RESULT}"
@@ -332,10 +332,10 @@ main() {
     # --------------------------------------------------------------------------
     tui_step 13 "${TOTAL_STEPS}" "Username"
 
-    # Spec: [a-z_][a-z0-9_-]{0,31} (lowercase only; max 32 chars total)
-    validate_user() { [[ "$1" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; }
+    # Spec: [a-zA-Z_][a-zA-Z0-9_-]{0,31} (max 32 chars total)
+    validate_user() { [[ "$1" =~ ^[a-zA-Z_][a-zA-Z0-9_-]{0,31}$ ]]; }
     tui_input_validated "Username" \
-        "Primary username (lowercase letters/digits/underscore/hyphen)" \
+        "Primary username (letters/digits/underscore/hyphen)" \
         "${USERNAME:-lightjack05}" \
         validate_user
     ans="${_TUI_RESULT}"

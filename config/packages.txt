@@ -150,7 +150,6 @@ tea
 thunar
 time
 tk
-tmux
 torbrowser-launcher
 tree
 ttf-nerd-fonts-symbols

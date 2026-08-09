@@ -66,7 +66,6 @@ inetutils
 inotify-tools
 iw
 k9s
-kitty
 krita
 less
 lib32-vulkan-radeon
@@ -138,7 +137,6 @@ steam
 stow
 strace
 sudo
-swaync
 swtpm
 system-config-printer
 tea
@@ -161,12 +159,10 @@ virt-manager
 virt-viewer
 vulkan-radeon
 vulkan-tools
-waybar
 wev
 wget
 wireguard-tools
 wl-clipboard
-wofi
 xdg-desktop-portal-hyprland
 zip
 zsh

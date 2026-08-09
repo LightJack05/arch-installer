@@ -88,7 +88,6 @@ mesa
 mesa-utils
 mpv
 mtr
-neovim
 network-manager-applet
 networkmanager
 networkmanager-openvpn
@@ -97,7 +96,6 @@ noto-fonts
 noto-fonts-cjk
 noto-fonts-extra
 noto-fonts-emoji
-npm
 nss-mdns
 nwg-look
 obs-studio
@@ -121,8 +119,6 @@ podman
 podman-compose
 power-profiles-daemon
 progress
-python-pip
-python-pynvim
 qemu-desktop
 qemu-emulators-full
 qt6-wayland

@@ -19,7 +19,6 @@ calf
 chromium
 chrono-date
 cifs-utils
-cliphist
 cowsay
 cpio
 cronie
@@ -36,7 +35,6 @@ fastfetch
 figlet
 filelight
 fio
-firefox
 gamescope
 gdb
 gimp
@@ -47,18 +45,12 @@ gnome-keyring
 godot
 gparted
 graphviz
-grim
 helvum
 hexedit
 hiprt
 hip-runtime-amd
 htop
-hypridle
 hyprland
-hyprlock
-hyprpaper
-hyprpicker
-hyprpolkitagent
 i2c-tools
 illuminanced
 imv
@@ -124,11 +116,9 @@ qt6-wayland
 rclone
 restic
 rnote
-satty
 sdl3
 seahorse
 skim
-slurp
 smartmontools
 sof-firmware
 squashfs-tools
@@ -140,7 +130,6 @@ sudo
 swtpm
 system-config-printer
 tea
-thunar
 time
 tk
 torbrowser-launcher
@@ -148,7 +137,6 @@ tree
 ttf-nerd-fonts-symbols
 ttf-nerd-fonts-symbols-mono
 ttf-roboto-mono-nerd
-tumbler
 ufw
 unicode-emoji
 unzip
@@ -162,7 +150,6 @@ vulkan-tools
 wev
 wget
 wireguard-tools
-wl-clipboard
 xdg-desktop-portal-hyprland
 zip
 zsh

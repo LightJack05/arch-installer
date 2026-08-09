@@ -25,7 +25,6 @@ illuminanced
 iw
 less
 lib32-vulkan-radeon
-libreoffice-fresh
 linux
 linux-firmware
 linux-headers

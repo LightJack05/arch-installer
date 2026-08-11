@@ -16,7 +16,6 @@ dnsmasq
 dosfstools
 efibootmgr
 gamescope
-gdb
 git
 hiprt
 hip-runtime-amd
@@ -29,13 +28,11 @@ linux
 linux-firmware
 linux-headers
 localsearch
-lutris
 lvm2
 ly
 man-db
 mesa
 mesa-utils
-mtr
 network-manager-applet
 networkmanager
 networkmanager-openvpn
@@ -65,5 +62,4 @@ virt-manager
 virt-viewer
 vulkan-radeon
 vulkan-tools
-wget
 wireguard-tools
